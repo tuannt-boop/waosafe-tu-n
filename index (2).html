@@ -1,0 +1,1209 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mô phỏng hệ thống SOS xe máy: từ lúc mua đến lúc dùng</title>
+<style>
+:root{--bg:#0b0f17;--card:#131a26;--card2:#0e1420;--line:#243044;--txt:#e6edf6;--mut:#8fa0b8;--ok:#4ade80;--warn:#fbbf24;--bad:#ef4444;--acc:#38bdf8;--rel:#a78bfa}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--txt);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;line-height:1.45}
+button{font-family:inherit}
+header.top{max-width:1240px;margin:0 auto;padding:14px 16px 4px}
+h1{font-size:19px;margin:0 0 4px}
+.tag{display:inline-block;font-size:12px;padding:2px 8px;border:1px solid var(--warn);color:var(--warn);border-radius:999px;margin-left:6px;vertical-align:middle}
+.sub{color:var(--mut);font-size:13px;margin:0 0 10px}
+.modes{display:flex;gap:8px;flex-wrap:wrap}
+.mode{background:var(--card);color:var(--txt);border:1px solid var(--line);padding:9px 16px;border-radius:10px;font-size:14px;cursor:pointer}
+.mode.on{border-color:var(--acc);color:var(--acc);background:rgba(56,189,248,.1)}
+main{max-width:1240px;margin:0 auto;padding:10px 16px 30px;display:grid;grid-template-columns:330px 330px 1fr;gap:14px;align-items:start}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px;min-width:0}
+.card h2{font-size:13px;margin:0 0 8px;color:var(--mut);font-weight:600;letter-spacing:.3px}
+#ctl,#sceneCard{grid-column:1/-1}
+@media(max-width:1000px){main{grid-template-columns:1fr 1fr}.side{grid-column:1/-1}}
+@media(max-width:700px){main{grid-template-columns:1fr}}
+/* ---- control card ---- */
+.phases{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.ph{font-size:12px;padding:5px 10px;border-radius:999px;border:1px solid var(--line);color:var(--mut)}
+.ph.on{border-color:var(--acc);color:var(--acc);background:rgba(56,189,248,.1)}
+.ph.done{border-color:#2f4f3b;color:var(--ok)}
+.jbox{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center}
+@media(max-width:700px){.jbox{grid-template-columns:1fr}}
+.jt{font-size:16px;font-weight:700;margin:0 0 3px}
+.jd{font-size:13.5px;color:#c4d0e2;margin:0}
+.jn{font-size:12px;color:var(--mut);margin-top:4px}
+.jbtns{display:flex;gap:8px;flex-wrap:wrap}
+.b{background:#1b2638;color:var(--txt);border:1px solid var(--line);padding:9px 14px;border-radius:9px;font-size:14px;cursor:pointer}
+.b:hover{border-color:var(--acc)}
+.b.pri{background:#0c4a6e;border-color:#0369a1}
+.b.go{background:#14532d;border-color:#166534}
+.b.sm{padding:5px 10px;font-size:12px;border-radius:8px}
+.b.on{border-color:var(--acc);color:var(--acc);background:rgba(56,189,248,.1)}
+.b:disabled{opacity:.4;cursor:not-allowed}
+.cases{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:8px}
+.case{background:var(--card2);border:1px solid var(--line);border-radius:10px;padding:9px 10px;cursor:pointer;color:var(--txt);text-align:left}
+.case b{display:block;font-size:13px}
+.case span{display:block;font-size:12px;color:var(--mut);margin-top:2px}
+.case.on{border-color:var(--acc);background:rgba(56,189,248,.08)}
+.casebar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px}
+.casedesc{font-size:13px;color:#c4d0e2;margin:10px 0 0}
+/* ---- scene ---- */
+.viewbar{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:8px;font-size:13px}
+.viewbar .mut{color:var(--mut)}
+.sep{width:1px;height:18px;background:var(--line);margin:0 4px}
+.viewbar .right{margin-left:auto;display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.snd{font-size:12px;color:var(--mut);display:flex;gap:5px;align-items:center}
+#stageWrap{position:relative;width:100%;aspect-ratio:16/7;min-height:300px;border-radius:10px;overflow:hidden;background:#05070c;touch-action:none}
+@media(max-width:700px){#stageWrap{aspect-ratio:4/3}}
+#scene3d,#scene2d{position:absolute;inset:0;display:none}
+#scene3d canvas{width:100%;height:100%;display:block;cursor:grab}
+#scene3d canvas:active{cursor:grabbing}
+#scene2d svg{width:100%;height:100%;display:block}
+.hintc{position:absolute;left:8px;bottom:6px;font-size:11px;color:#6b7c95;pointer-events:none;z-index:2}
+#hud{position:absolute;right:8px;top:8px;z-index:3;display:flex;flex-direction:column;gap:6px;align-items:flex-end;pointer-events:none}
+.hudc{background:rgba(8,12,20,.78);border:1px solid var(--line);border-radius:10px;padding:6px 9px;font-size:12px;min-width:150px}
+.hudc b{font-size:15px}
+.vbar{height:8px;background:#1a2333;border-radius:5px;position:relative;margin-top:4px;overflow:hidden}
+.vbar i{position:absolute;left:0;top:0;bottom:0;background:var(--ok);width:3%}
+.vbar u{position:absolute;top:-2px;bottom:-2px;width:2px;background:var(--bad);left:40%}
+#flash{position:absolute;inset:0;background:#ef4444;opacity:0;pointer-events:none;z-index:4;transition:opacity .5s}
+#stage{position:absolute;inset:0;display:none;z-index:5;background:radial-gradient(circle at 50% 40%,#122036,#070a11 75%);align-items:center;justify-content:center;flex-direction:column;text-align:center;padding:10px}
+#stage svg{max-width:560px;width:90%;max-height:78%}
+#stage .cap{font-size:14px;color:#cfe0f5;margin-top:6px;max-width:640px}
+.banner{margin-top:8px;min-height:42px;font-size:14px;padding:8px 10px;border-radius:8px;background:var(--card2);border:1px solid var(--line)}
+.banner.warn{border-color:var(--warn);color:var(--warn)}
+.banner.bad{border-color:var(--bad);color:#fecaca}
+.banner.ok{border-color:var(--ok);color:var(--ok)}
+.steps{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.step{font-size:12px;padding:4px 9px;border-radius:999px;border:1px solid var(--line);color:var(--mut);transition:.25s}
+.step.on{border-color:var(--acc);color:var(--acc);background:rgba(56,189,248,.08)}
+.step.done{border-color:#2f4f3b;color:var(--ok)}
+.step.bad.on{border-color:var(--bad);color:var(--bad);background:rgba(239,68,68,.1)}
+/* ---- chip ---- */
+.chiprow{display:flex;gap:14px;align-items:stretch;margin-top:10px;flex-wrap:wrap}
+.chipbox{display:flex;align-items:center;gap:12px;background:var(--card2);border:1px solid var(--line);border-radius:12px;padding:10px 14px}
+.sosbtn{width:96px;height:96px;border:0;background:none;padding:0;cursor:pointer;touch-action:none;user-select:none;-webkit-user-select:none;flex:none}
+.sosbtn svg{width:96px;height:96px;display:block}
+.sosbtn .core{fill:#3a1216;stroke:#7f1d1d;stroke-width:2;transition:.15s}
+.sosbtn.hint .core{animation:pulse 1.1s infinite}
+.sosbtn.hold .core{fill:#7f1d1d}
+.sosbtn:disabled{opacity:.45;cursor:not-allowed}
+@keyframes pulse{0%,100%{fill:#3a1216}50%{fill:#7f1d1d}}
+.sosbtn text{fill:#fecaca;font-size:14px;font-weight:700;text-anchor:middle;dominant-baseline:middle;pointer-events:none}
+.chipinfo{font-size:13px;min-width:190px}
+.chipinfo b{display:block;font-size:14px}
+.chipinfo .mut{color:var(--mut)}
+.led{display:inline-block;width:11px;height:11px;border-radius:50%;background:#2a3446;margin-right:6px;vertical-align:middle}
+.led.g{background:#22c55e;box-shadow:0 0 8px #22c55e}
+.led.a{background:#fbbf24;box-shadow:0 0 10px #fbbf24;animation:blink 0.7s infinite}
+.led.r{background:#ef4444;box-shadow:0 0 8px #ef4444}
+@keyframes blink{50%{opacity:.25}}
+.chipbox.buzz{animation:buzz .5s}
+@keyframes buzz{0%,100%{transform:translate(0)}15%{transform:translate(-2px,1px)}30%{transform:translate(2px,-1px)}45%{transform:translate(-2px,0)}60%{transform:translate(2px,1px)}}
+.howto{background:var(--card2);border:1px solid var(--line);border-radius:12px;padding:8px 12px;font-size:12.5px;color:#c4d0e2;flex:1;min-width:230px}
+.howto b{color:var(--txt)}
+.howto div{margin:2px 0}
+/* ---- phones ---- */
+.phwrap{display:flex;flex-direction:column;align-items:center;gap:6px}
+.phtitle{font-size:13px;font-weight:700;display:flex;gap:6px;align-items:center}
+.phtitle small{color:var(--mut);font-weight:400}
+.phone{width:310px;max-width:100%;height:600px;background:#000;border:6px solid #1f2937;border-radius:34px;position:relative;overflow:hidden;display:flex;flex-direction:column}
+.phone.buzz{animation:buzz .5s 2}
+.phone .notch{position:absolute;top:6px;left:50%;transform:translateX(-50%);width:84px;height:18px;background:#0b0f17;border-radius:12px;z-index:6}
+.sbar{display:flex;justify-content:space-between;padding:8px 18px 4px;font-size:11px;color:#c8d3e3;z-index:5;flex:none}
+.screen{flex:1;overflow:auto;padding:6px 12px 14px;scrollbar-width:thin;position:relative}
+.tabs{display:none;flex:none;border-top:1px solid #1d2636;background:#0a0f19}
+.tabs button{flex:1;background:none;border:0;color:var(--mut);padding:9px 2px;font-size:11.5px;cursor:pointer;position:relative}
+.tabs button.on{color:var(--rel)}
+.tabs i{position:absolute;top:3px;right:18%;background:var(--bad);color:#fff;border-radius:9px;font-size:10px;padding:0 5px;font-style:normal}
+.phone.broken .screen::after{content:"";position:absolute;inset:0;background:#000 url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><path d='M50 0 L46 30 L20 44 L40 52 L30 80 L52 62 L75 100 M46 30 L78 22 M52 62 L90 50 M40 52 L8 64' stroke='%23778' fill='none' stroke-width='.8'/></svg>") center/cover;z-index:9}
+.a-h{font-size:17px;font-weight:700;margin:6px 0 2px}
+.a-s{font-size:12.5px;color:var(--mut);margin:0 0 10px}
+.fld{background:#0e1624;border:1px solid #1f2b3f;border-radius:10px;padding:7px 10px;margin-bottom:8px}
+.fld label{display:block;font-size:11px;color:var(--mut)}
+.fld input[type=text]{width:100%;background:none;border:0;color:var(--txt);font-size:14px;outline:none;padding:2px 0}
+.row{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:13px;padding:6px 0;border-bottom:1px dashed #1c2740}
+.row:last-child{border-bottom:0}
+.row small{color:var(--mut);display:block;font-size:11px}
+.sw{width:38px;height:22px;border-radius:12px;background:#2a3446;position:relative;cursor:pointer;flex:none;border:0;padding:0}
+.sw::after{content:"";position:absolute;left:3px;top:3px;width:16px;height:16px;border-radius:50%;background:#fff;transition:.2s}
+.sw.on{background:#16a34a}
+.sw.on::after{left:19px}
+.btnA{display:block;width:100%;border:0;border-radius:11px;padding:11px;font-size:14px;font-weight:700;cursor:pointer;margin-top:8px;color:#fff;background:#0369a1}
+.btnA.g{background:#15803d}.btnA.r{background:#b91c1c}.btnA.v{background:#6d28d9}.btnA.o{background:#334155}
+.btnA:disabled{opacity:.45;cursor:not-allowed}
+.pill{display:inline-block;font-size:11px;padding:2px 8px;border-radius:999px;border:1px solid var(--line);color:var(--mut)}
+.pill.ok{border-color:#2f4f3b;color:var(--ok)}.pill.warn{border-color:#5b4a1a;color:var(--warn)}.pill.bad{border-color:#6b1f1f;color:#fca5a5}
+.rt{border:1px solid #1f2b3f;border-radius:12px;padding:8px 10px;margin-bottom:8px;cursor:pointer;background:#0e1624}
+.rt.on{border-color:var(--acc);background:rgba(56,189,248,.08)}
+.rt b{font-size:14px}.rt small{color:var(--mut);display:block;font-size:12px}
+.big{font-size:40px;font-weight:300;text-align:center;margin:4px 0;font-variant-numeric:tabular-nums}
+.big.red{color:#fca5a5}.big.amb{color:var(--warn)}
+.kvs{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:8px 0}
+.kvs div{background:#0e1624;border:1px solid #1f2b3f;border-radius:10px;padding:6px 8px;font-size:11px;color:var(--mut)}
+.kvs b{display:block;font-size:15px;color:var(--txt)}
+.minimap{border-radius:10px;overflow:hidden;border:1px solid #1f2b3f;background:#05070c;margin:6px 0}
+.minimap svg{display:block;width:100%;height:auto}
+.alertbox{border-radius:14px;padding:12px;margin:8px 0;text-align:center}
+.alertbox.amb{background:#2a2108;border:1px solid var(--warn)}
+.alertbox.red{background:#2a0f12;border:1px solid var(--bad)}
+.alertbox.grn{background:#0f2a18;border:1px solid #166534}
+.alertbox h3{margin:0 0 4px;font-size:16px}
+.alertbox p{margin:3px 0;font-size:13px}
+.pbar{height:7px;background:#1a2333;border-radius:5px;overflow:hidden;margin:8px 0}
+.pbar i{display:block;height:100%;width:0;background:var(--acc)}
+.feed{margin-top:6px}
+.fi{font-size:12px;padding:6px 8px;border-radius:9px;margin-bottom:5px;background:#0e1624;border:1px solid #1f2b3f}
+.fi.ok{border-color:#2f4f3b}.fi.warn{border-color:#5b4a1a}.fi.bad{border-color:#6b1f1f;background:#220e10}
+.fi b{display:block;font-size:12px}.fi small{color:var(--mut)}
+.sms{max-width:92%;background:#1e293b;border-radius:14px 14px 14px 4px;padding:8px 10px;font-size:12.5px;margin:6px 0}
+.sms.bad{background:#3a1216;border:1px solid #7f1d1d}
+.sms small{display:block;color:var(--mut);font-size:10.5px;margin-top:3px}
+.rsos{position:absolute;inset:0;z-index:7;background:#1a0709;padding:34px 12px 12px;overflow:auto;display:none}
+.rsos.show{display:block}
+.rsos h3{color:#fecaca;margin:0;font-size:18px;display:flex;align-items:center;gap:8px}
+.dot{width:11px;height:11px;border-radius:50%;background:var(--bad);animation:blink 1s infinite;flex:none}
+.rsos.show .shk{animation:shake .6s 2}
+@keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-6px)}40%{transform:translateX(6px)}60%{transform:translateX(-4px)}80%{transform:translateX(4px)}}
+.wave{display:flex;align-items:center;gap:2px;height:28px;margin-top:4px}
+.wave i{display:block;width:3px;background:#f87171;border-radius:2px;height:6px}
+.toastR{position:absolute;left:8px;right:8px;top:30px;z-index:8;background:#1f2937;border:1px solid var(--line);border-radius:12px;padding:8px 10px;font-size:12px;display:none}
+.toastR b{display:block}
+/* ---- side ---- */
+.lnk{display:flex;justify-content:space-between;font-size:12.5px;padding:4px 0;border-bottom:1px dashed #1c2740}
+.lnk .st{font-weight:700}
+.st.ok{color:var(--ok)}.st.bad{color:#fca5a5}.st.warn{color:var(--warn)}.st.off{color:var(--mut)}
+#vibChart{width:100%;height:120px;display:block;background:#0a0f19;border-radius:8px;border:1px solid var(--line)}
+.log{max-height:230px;overflow:auto;font-size:12.5px;font-family:ui-monospace,Menlo,Consolas,monospace}
+.log div{padding:3px 0;border-bottom:1px dashed #1c2740}
+.log .t{color:var(--acc);margin-right:6px}
+.log .r{color:#fca5a5}.log .y{color:var(--warn)}.log .g{color:var(--ok)}
+.note{color:var(--mut);font-size:12px;margin:6px 0 0}
+.srv{font-size:13px;padding:6px 8px;border-radius:8px;background:var(--card2);border:1px solid var(--line);margin:8px 0}
+.hl{outline:3px solid #fbbf24!important;outline-offset:2px;animation:hlp 1s infinite}
+@keyframes hlp{50%{outline-color:transparent}}
+body{font-size:15px}
+.card h2{font-size:14px;color:#a9b8cf;letter-spacing:.5px;text-transform:uppercase}
+.phone{width:330px}.a-s{font-size:13px}.row{font-size:14px}
+.mode{font-size:15px;padding:10px 18px}.mode:disabled{opacity:.5}
+main{grid-template-columns:350px 350px 1fr}
+#stageWrap{aspect-ratio:16/8}
+.case b{font-size:14px}.case span{font-size:12.5px}
+.banner{font-size:15px;line-height:1.5}
+.ph{font-size:13px;padding:6px 12px}
+@media(max-width:1100px){main{grid-template-columns:1fr 1fr}}
+@media(max-width:760px){main{grid-template-columns:1fr}.phone{width:100%;max-width:360px}}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <h1><span id="appName">WAOsafe</span> · Mô phỏng hệ thống SOS xe máy <span class="tag">MÔ PHỎNG – dữ liệu giả lập</span></h1>
+  <p class="sub">Chọn “Hành trình từ đầu” để đi qua 5 giai đoạn (mở hộp, ghép nối, cài đặt, đi đường, về đến nhà) hoặc “Các trường hợp” để chạy riêng từng tình huống. Hai điện thoại bên dưới là app của người lái và app của người thân (người được cấp quyền), đều bấm được.</p>
+  <nav class="modes">
+    <button class="mode on" data-mode="journey">🧭 Hành trình từ đầu (5 giai đoạn)</button>
+    <button class="mode" data-mode="case">🧪 Các trường hợp (TH1 – TH4)</button>
+  </nav>
+</header>
+
+<main>
+  <section class="card" id="ctl"></section>
+
+  <section class="card" id="sceneCard">
+    <div class="viewbar">
+      <span class="mut">Chế độ xem:</span>
+      <button class="b sm" id="v3d">Cảnh 3D</button>
+      <button class="b sm on" id="v2d">Bản đồ 2D</button>
+      <span class="sep"></span>
+      <span id="camBar">
+        <button class="b sm on" data-cam="chase">Sau xe</button>
+        <button class="b sm" data-cam="side">Bên hông</button>
+        <button class="b sm" data-cam="act">Cảnh hành động</button>
+        <button class="b sm" data-cam="chip">Cận cảnh chip</button>
+        <button class="b sm" data-cam="map">Toàn cảnh</button>
+      </span>
+      <span class="right">
+        <button class="b sm" id="btnPause">⏸ Tạm dừng</button>
+        <button class="b sm" id="btnFF">⏩ Tua nhanh đếm ngược</button>
+        <button class="b sm" id="btnReset">↺ Làm lại</button>
+        <label class="snd"><input type="checkbox" id="snd" checked> Âm thanh</label>
+      </span>
+    </div>
+    <div id="stageWrap">
+      <div id="scene3d"><div class="hintc">Kéo để xoay • bấm đúp để đặt lại góc nhìn</div></div>
+      <div id="scene2d"></div>
+      <div id="hud">
+        <div class="hudc">Tốc độ <b id="hSpd">0</b> km/h<br>Đếm ngược <b id="hEta">--:--</b></div>
+        <div class="hudc">Rung chấn <b id="hVib">0.0</b> g <span style="color:var(--mut)">(ngưỡng <span id="hThr">4.0</span> g)</span>
+          <div class="vbar"><i id="hVibBar"></i><u id="hThrMark"></u></div></div>
+      </div>
+      <div id="flash"></div>
+      <div id="stage"></div>
+    </div>
+    <div class="banner" id="banner">Chọn một chế độ ở trên để bắt đầu.</div>
+    <div class="steps" id="steps"></div>
+    <div class="chiprow">
+      <div class="chipbox" id="chipbox">
+        <button class="sosbtn" id="chipbtn" aria-label="Nút khẩn cấp trên chip" disabled>
+          <svg viewBox="0 0 96 96">
+            <circle cx="48" cy="48" r="42" fill="none" stroke="#2a3446" stroke-width="6"/>
+            <circle id="ring" cx="48" cy="48" r="42" fill="none" stroke="#ef4444" stroke-width="6" stroke-linecap="round" stroke-dasharray="263.9" stroke-dashoffset="263.9" transform="rotate(-90 48 48)"/>
+            <circle class="core" cx="48" cy="48" r="31"/>
+            <text x="48" y="48">SOS</text>
+          </svg>
+        </button>
+        <div class="chipinfo">
+          <b>Chip gắn đầu xe</b>
+          <span><i class="led" id="led"></i><span id="chipState">Chưa bật</span></span><br>
+          <span class="mut" id="chipTxt">Nhấn giữ 3 giây = SOS im lặng</span>
+        </div>
+      </div>
+      <div class="howto">
+        <div><b>Giữ 3 giây</b> → SOS im lặng (không còi, không chớp đèn, chỉ rung nhẹ xác nhận).</div>
+        <div><b>Nhấn đúp</b> → xác nhận an toàn và gia hạn thêm 15 phút khi trễ giờ.</div>
+        <div><b>Đèn chip:</b> xanh = đang giám sát · vàng nháy = quá giờ dự kiến · tắt = chưa bật / hỏng.</div>
+        <div><b>Cảm biến rung:</b> rung dưới ngưỡng bị lọc bỏ, vượt ngưỡng thì hệ thống hỏi “Bạn ổn chứ?”.</div>
+      </div>
+    </div>
+  </section>
+
+  <div class="phwrap">
+    <div class="phtitle">📱 App người lái <small id="uWho">(Mai)</small></div>
+    <div class="phone" id="uphone"><div class="notch"></div>
+      <div class="sbar"><span id="uTime">21:29</span><span>📶 4G 🔋 76%</span></div>
+      <div class="screen" id="uScreen"></div>
+    </div>
+  </div>
+
+  <div class="phwrap">
+    <div class="phtitle" style="color:var(--rel)">📱 App người thân <small id="rWho">(Mẹ Lan, được cấp quyền)</small></div>
+    <div class="phone" id="rphone"><div class="notch"></div>
+      <div class="sbar"><span id="rTime">21:29</span><span>📶 🔋 91%</span></div>
+      <div class="toastR" id="rToast"></div>
+      <div class="screen" id="rScreen"></div>
+      <div class="rsos" id="rSos"></div>
+      <div class="tabs" id="rTabs">
+        <button data-tab="live" class="on">🗺 Theo dõi</button>
+        <button data-tab="sms">✉ SMS<i id="smsBadge" style="display:none">0</i></button>
+        <button data-tab="store">🗄 Lưu trữ</button>
+      </div>
+    </div>
+  </div>
+
+  <aside class="card side">
+    <h2>HỆ THỐNG ĐÁM MÂY (CLOUD) VÀ KẾT NỐI</h2>
+    <div class="lnk"><span>Chip ↔ điện thoại (Bluetooth)</span><span class="st off" id="lnkBle">chưa ghép</span></div>
+    <div class="lnk"><span>Chip → Cloud (SIM 4G riêng)</span><span class="st off" id="lnkChip">tắt</span></div>
+    <div class="lnk"><span>Điện thoại → Cloud (4G)</span><span class="st off" id="lnkPhone">tắt</span></div>
+    <div class="lnk"><span>Gói dữ liệu cuối nhận được</span><span class="st off" id="lastBeat">--</span></div>
+    <div class="srv" id="srvState">Máy chủ: chưa có chuyến đi.</div>
+    <h2>BIỂU ĐỒ RUNG CHẤN (CHIP, 10 GIÂY GẦN NHẤT)</h2>
+    <canvas id="vibChart" width="520" height="120"></canvas>
+    <h2 style="margin-top:12px">NHẬT KÝ HỆ THỐNG</h2>
+    <div class="log" id="log"><div><span class="t">--</span>Chờ bắt đầu.</div></div>
+    <p class="note">Mọi con số (tọa độ, pin, tên trạm cứu hộ, thời gian chờ) là giả lập để minh họa luồng hoạt động. Thời gian trong mô phỏng được tăng tốc.</p>
+  </aside>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function(){
+'use strict';
+/* ===== 1. HẰNG SỐ & TIỆN ÍCH ===== */
+const $=id=>document.getElementById(id);
+const RATE=18, CRUISE=20, THR=4.0, HOLD_MS=3000, CANCEL={c:1};
+const TURBO=+(new URLSearchParams(location.search).get('turbo'))||1;
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v)), lerp=(a,b,t)=>a+(b-a)*t, pad=n=>String(n).padStart(2,'0');
+const hm=s=>{s=Math.floor(s)%86400;return pad(Math.floor(s/3600))+':'+pad(Math.floor(s/60)%60)};
+const hms=s=>hm(s)+':'+pad(Math.floor(s)%60);
+const mmss=s=>{s=Math.max(0,Math.ceil(s));return pad(Math.floor(s/60))+':'+pad(s%60)};
+
+/* ===== 2. TUYẾN ĐƯỜNG ===== */
+const SEG={A:[[[70,360],[200,440],[470,440],[540,340]],[[540,340],[610,240],[650,170],[735,140]]],
+           B:[[[70,360],[200,360],[230,250],[370,245]],[[370,245],[510,240],[560,170],[735,140]]]};
+const RT={};
+function bz(c,t){const u=1-t;return [u*u*u*c[0][0]+3*u*u*t*c[1][0]+3*u*t*t*c[2][0]+t*t*t*c[3][0],u*u*u*c[0][1]+3*u*u*t*c[1][1]+3*u*t*t*c[2][1]+t*t*t*c[3][1]];}
+['A','B'].forEach(k=>{
+  const pts=[];let cum=0,prev=null;
+  SEG[k].forEach((c,si)=>{for(let i=(si?1:0);i<=300;i++){const p=bz(c,i/300);if(prev)cum+=Math.hypot(p[0]-prev[0],p[1]-prev[1]);pts.push([p[0],p[1],cum]);prev=p;}});
+  RT[k]={pts:pts,len:cum,d:'M'+SEG[k][0][0].join(' ')+SEG[k].map(c=>' C'+c[1].join(' ')+' '+c[2].join(' ')+' '+c[3].join(' ')).join('')};
+});
+function pos(k,s){const P=RT[k].pts;s=clamp(s,0,RT[k].len);let lo=0,hi=P.length-1;while(hi-lo>1){const m=(lo+hi)>>1;if(P[m][2]<=s)lo=m;else hi=m;}
+  const a=P[lo],b=P[hi],t=(b[2]-a[2])>0?(s-a[2])/(b[2]-a[2]):0;return {x:lerp(a[0],b[0],t),y:lerp(a[1],b[1],t)};}
+function head(k,s){s=Math.min(s,RT[k].len-4);const a=pos(k,s),b=pos(k,s+3);return Math.atan2(b.y-a.y,b.x-a.x);}
+function placeAt(k,s,lat){const p=pos(k,s),h=head(k,s);return {x:p.x-Math.sin(h)*lat,y:p.y+Math.cos(h)*lat,h:h};}
+const MAN=RT.B.len*.30, ATT=RT.B.len*.56, JAM=RT.A.len*.46;
+const ZONES={home:{n:'Nhà',x:735,y:140},work:{n:'Chỗ làm',x:70,y:360},school:{n:'Trường',x:215,y:105}};
+const STATIONS=[{n:'Trạm y tế phường (giả lập)',x:600,y:150},{n:'Công an phường (giả lập)',x:300,y:330},{n:'Trạm cấp cứu 115 (giả lập)',x:140,y:300}];
+function info(k){const len=RT[k].len,eta=len*(RATE/CRUISE);return {len:len,km:(len*8/1000),eta:eta,min:Math.ceil(eta/60),deadline:Math.ceil(eta/60)*60+120};}
+function gps(p){return (10.8+(480-p.y)*0.00018).toFixed(5)+', '+(106.7+p.x*0.00022).toFixed(5);}
+
+/* ===== 3. TRẠNG THÁI ===== */
+let MODE='journey', stageRes=null;
+let S=null, GEN=0, paused=false, autoFlag=true, curCase=null, need=null, lastT=0;
+function fresh(){return{clock:21*3600+29*60,route:'A',s:0,speed:0,target:0,cruise:false,stopAt:null,decel:40,
+  trip:false,arrived:false,left:0,deadline:0,overdue:false,grace:0,boost:1,
+  vib:.3,spike:0,peak:0,hist:[],bump:0,fall:0,fallDir:1,crash:0,
+  chip:{on:false,alive:true,led:'off',buzz:0},phone:{alive:true,cracked:false},thief:{mode:'off',s:0,lat:0},
+  cloud:{last:null,acc:0,buf:[],hist:[],lost:false,handled:false,longDone:false},sos:null,ask:null,impact:false,hold:null,
+  u:MODE==='journey'?'idle':'home',rs:MODE==='journey'?'idle':'live',tab:'live',sms:[],feed:[],dest:'home',allow:true,jam:false,rdisp:0,smsNew:0,confirmed:false,tunnelOn:false,net:true,idle:0,mount:MODE==='journey'?0:1,decals:MODE!=='journey',dl:0,dlRun:false,authTab:'reg',perm:{loc:true,notif:true,ble:true},pairStep:'scan',shareLoc:true,zones:{home:false,work:false,school:false},testDone:false,rAuth:'reg',rcode:false,rperm:{sms:true,loud:true,loc:true}};}
+S=fresh();
+
+/* ===== 4. BỘ HẸN GIỜ (cho kịch bản tuyến tính) ===== */
+const waiters=[];
+function sleep(ms){return new Promise((res,rej)=>waiters.push({left:ms,res:res,rej:rej}));}
+function until(fn,maxMs){return new Promise((res,rej)=>waiters.push({fn:fn,left:maxMs==null?Infinity:maxMs,res:res,rej:rej}));}
+function tickWaiters(ms){for(let i=waiters.length-1;i>=0;i--){const w=waiters[i];
+  if(w.fn){if(w.fn()){waiters.splice(i,1);w.res(true);continue;}w.left-=ms;if(w.left<=0){waiters.splice(i,1);w.res(false);}}
+  else{w.left-=ms;if(w.left<=0){waiters.splice(i,1);w.res();}}}}
+function cancelAll(){GEN++;waiters.splice(0).forEach(w=>w.rej(CANCEL));if(need){const n=need;need=null;n.rej(CANCEL);}}
+function run(fn){const g=GEN;fn().catch(e=>{if(e!==CANCEL)console.error(e);});}
+const autoOn=()=>autoFlag;
+function userAct(name,autoMs,autoFn){return new Promise((res,rej)=>{need={name:name,res:res,rej:rej};hl();
+  if(autoOn())sleep(autoMs).then(()=>{if(need&&need.name===name)(autoFn||(()=>doAct(name,{dataset:{}})))();}).catch(()=>{});});}
+function perform(name){if(!need||need.name!==name)return false;const n=need;need=null;hl();n.res();return true;}
+function hl(){document.querySelectorAll('.hl').forEach(e=>e.classList.remove('hl'));if(!need)return;
+  document.querySelectorAll('[data-act="'+need.name+'"]').forEach(e=>e.classList.add('hl'));
+  if(need.name==='hold'||need.name==='dbl')$('chipbtn').classList.add('hl');}
+
+/* ===== 5. NHẬT KÝ, ÂM THANH, BANNER ===== */
+function log(msg,cls){const d=document.createElement('div');d.innerHTML='<span class="t">'+hms(S.clock)+'</span><span class="'+(cls||'')+'">'+nm(msg)+'</span>';const b=$('log');b.appendChild(d);b.scrollTop=b.scrollHeight;}
+function banner(t,c){const b=$('banner');b.textContent=nm(t);b.className='banner '+(c||'');}
+function beep(n,f){if(!$('snd').checked)return;try{const ac=new (window.AudioContext||window.webkitAudioContext)();
+  for(let i=0;i<(n||3);i++){const o=ac.createOscillator(),g=ac.createGain();o.type='square';o.frequency.value=f||880;g.gain.value=.07;o.connect(g);g.connect(ac.destination);o.start(ac.currentTime+i*.35);o.stop(ac.currentTime+i*.35+.2);}}catch(e){}}
+function setSteps(arr){S.steps=arr;$('steps').innerHTML=arr.map((t,i)=>'<span class="step" data-i="'+i+'">'+(i+1)+'. '+nm(t)+'</span>').join('');}
+function step(i,bad){document.querySelectorAll('#steps .step').forEach(e=>{const k=+e.dataset.i;e.classList.toggle('on',k===i);e.classList.toggle('bad',!!bad&&k===i);e.classList.toggle('done',k<i);});}
+
+/* ===== 6. CHIP ===== */
+function ledSet(c){S.chip.led=c;}
+function startHold(auto){if(S.hold||S.sos||!S.chip.on||!S.chip.alive)return;S.hold={ms:0,auto:!!auto};log('Người lái bắt đầu nhấn giữ nút chip...');}
+function cancelHold(){if(!S.hold||S.hold.auto)return;S.hold=null;$('chipTxt').textContent='Nhả sớm → không gửi (chống bấm nhầm)';log('Nhả nút trước 3 giây: bỏ qua, không gửi SOS (chống bấm nhầm).');}
+function onHoldDone(){S.hold=null;if(S.u==='test'&&!S.trip)testSOS();else if(S.trip&&!S.sos)sendSOS('manual');perform('hold');}
+function onDbl(){S.tapAt=performance.now();if(S.overdue){extend();perform('dbl');}else if(need&&need.name==='dbl')perform('dbl');}
+function chipBuzz(){S.chip.buzz=1;const b=$('chipbox');b.classList.remove('buzz');void b.offsetWidth;b.classList.add('buzz');}
+
+/* ===== 7. CHUYẾN ĐI, ĐẾN HẠN, GIA HẠN ===== */
+function startTrip(){const I=info(S.route);S.trip=true;S.arrived=false;S.deadline=I.deadline;S.left=I.deadline;S.chip.on=true;ledSet('g');S.cruise=true;S.cloud.acc=1;
+  log('Chip nhận ETA từ app: '+I.min+' phút (+2 phút dự phòng) → bắt đầu đếm ngược '+mmss(S.left)+'. Chip tự bật chế độ giám sát.','g');
+  addFeed('ok','Mai đã bắt đầu di chuyển','Tuyến '+S.route+' · dự kiến đến lúc '+hm(S.clock+I.eta));addSms('start','[WAOsafe] Mai đã bắt đầu di chuyển về Nhà. Dự kiến đến lúc '+hm(S.clock+I.eta)+'.');
+  setU('trip');}
+function onOverdue(){S.overdue=true;S.grace=25;ledSet('a');beep(2,660);
+  log('Quá giờ dự kiến: app báo quá độ, chip sáng đèn vàng nháy.','y');setU('overdue');
+  banner('⚠ Đã quá giờ dự kiến. Chip sáng đèn vàng. Nhấn đúp chip (hoặc bấm “Gia hạn”) để báo bạn vẫn ổn.','warn');}
+function extend(){if(!S.overdue)return;S.overdue=false;S.left+=900;S.grace=0;ledSet('g');S.deadline+=900;
+  log('Nhấn đúp chip → gia hạn thêm 15 phút. Hệ thống tự báo người thân.','g');addFeed('warn','Mai đã gia hạn thêm 15 phút','Về trễ hơn dự kiến, vẫn đang di chuyển');
+  addSms('extend','[WAOsafe] Mai đã gia hạn thêm 15 phút (về trễ hơn dự kiến). Vẫn đang theo dõi.');setU('trip');
+  banner('✔ Đã gia hạn 15 phút. Người thân nhận thông báo “đã gia hạn”.','ok');}
+function onArrive(){S.trip=false;S.arrived=true;S.cruise=false;S.overdue=false;ledSet('off');
+  log('Xe vào vùng an toàn (Nhà) và dừng hẳn → tự động kết thúc chuyến đi.','g');setU('arrive');
+  addFeed('ok','Mai đã về an toàn','Đã đến Nhà · phiên theo dõi đã ngắt');addSms('arrive','[WAOsafe] Mai đã về nhà an toàn lúc '+hm(S.clock)+'. Phiên theo dõi đã kết thúc.');
+  banner('✔ Đã đến nơi an toàn, hệ thống tự ngắt phiên theo dõi.','ok');}
+
+/* ===== 8. RUNG CHẤN, VA ĐẬP, HỎI “BẠN ỔN CHỨ?”, SOS ===== */
+function checkImpact(){if(!S.trip||S.impact||S.vib<THR)return;S.impact=true;
+  log('Rung chấn '+S.vib.toFixed(1)+' g VƯỢT ngưỡng '+THR.toFixed(1)+' g → ghi nhận va đập/ngã xe.','r');
+  banner('⚠ Độ rung chấn đã vượt ngưỡng!','bad');
+  S.lastImpact={v:S.vib,t:performance.now()};doBeat();if(S.phone.alive&&!S.sos)startAsk('vib');}
+function startAsk(kind){S.ask={left:30,kind:kind||'vib'};log('App rung mạnh hỏi “Bạn ổn chứ?” – chờ phản hồi 30 giây.','y');setU('ask');beep(3,700);const p=$('uphone');p.classList.remove('buzz');void p.offsetWidth;p.classList.add('buzz');}
+function imOk(){if(!S.ask)return;S.ask=null;S.impact=false;S.idle=-300;log('Người lái bấm “Tôi an toàn” → hủy báo động.','g');addFeed('ok','Mai xác nhận an toàn','Sau cảnh báo rung chấn');setU('trip');banner('Người lái bấm “Tôi an toàn”: không gửi SOS.','ok');perform('imok');}
+const SOSK={manual:{h:'SOS KHẨN CẤP',cause:'Người lái nhấn giữ nút chip 3 giây (SOS im lặng).',st:'Có thể đang bị đe dọa. Không còi, không đèn trên xe.'},
+  auto:{h:'SOS TỰ ĐỘNG',cause:'Rung chấn vượt ngưỡng và người lái không bấm “Tôi an toàn” trong 30 giây.',st:'Nghi ngã xe hoặc bị va chạm mạnh, người lái có thể bất tỉnh.'},
+  late:{h:'SOS QUÁ GIỜ',cause:'Quá giờ dự kiến và người lái không phản hồi.',st:'Chưa rõ tình trạng. Cần liên lạc ngay.'},
+  idle:{h:'SOS DỪNG LÂU',cause:'Xe dừng quá lâu ở nơi vắng và người lái không phản hồi “Bạn ổn chứ?”.',st:'Có thể xe hỏng, bị chặn đường hoặc người lái gặp nạn.'},
+  failsafe:{h:'SOS DỰ PHÒNG (FAIL-SAFE)',cause:'Chip và điện thoại mất kết nối đột ngột ngay sau cú va đập mạnh.',st:'Nghi thiết bị bị đập vỡ hoặc tai nạn nghiêm trọng. Dùng vị trí và dữ liệu cuối cùng nhận được.'}};
+function sendSOS(kind){if(S.sos)return;const l=S.cloud.last,fs=kind==='failsafe'&&l,p=fs?pos(l.route,l.s):pos(S.route,S.s);S.sos={kind:kind,t:fs?l.t:S.clock,s:fs?l.s:S.s,gps:gps(p),vib:fs?l.vib:S.peak};S.ask=null;S.overdue=false;
+  if(kind==='manual'){chipBuzz();$('chipTxt').textContent='Đã gửi SOS im lặng ✔ (chip rung nhẹ xác nhận)';}
+  setU('sent');log('GỬI SOS ('+kind+'): SMS kèm tọa độ '+S.sos.gps+' tới Mẹ Lan.','r');
+  banner(kind==='manual'?'✔ Đã gửi SOS im lặng. Trên xe không có còi hay đèn nào để kẻ xấu phát hiện.':'🚨 Hệ thống tự động gửi SOS cho người thân.','ok');
+  addSms('sos','[WAOsafe] '+SOSK[kind].h+': Mai đang gặp nguy hiểm! '+SOSK[kind].cause+' Vị trí '+S.sos.gps+'. Xem trực tiếp: saferide.vn/t/8F3K');
+  addFeed('bad',SOSK[kind].h,SOSK[kind].st);showSos();step(4,true);}
+function addFeed(c,t,sub){S.feed.unshift({c:c,t:t,sub:sub,at:S.clock});renderR();}
+function addSms(kind,text){S.sms.push({kind:kind,text:text,at:S.clock});if(S.tab!=='sms')S.smsNew++;renderR();
+  const t=$('rToast');t.innerHTML='<b>✉ WAOsafe</b>'+nm(text.slice(0,110)+(text.length>110?'…':''));t.style.display='block';clearTimeout(t._h);t._h=setTimeout(()=>t.style.display='none',3500);}
+
+/* ===== 9. MÔ PHỎNG THEO THỜI GIAN ===== */
+function stepWorld(dt){
+  const simDt=dt*RATE*S.boost;S.clock+=simDt;
+  S.net=!(S.tunnelOn&&S.route==='A'&&S.s>=TUN0&&S.s<=TUN1);
+  if(S.dlRun){S.dl=Math.min(1,S.dl+dt*.55);if(S.dl>=1){S.dlRun=false;setU('welcome');perform('dl');}else{const bb=$('dlBar');if(bb)bb.style.width=Math.round(S.dl*100)+'%';}}
+  if(S.trip&&!S.arrived&&!S.sos&&!S.ask&&S.route==='B'&&S.speed<.3&&S.s>30&&S.phone.alive&&S.chip.alive){S.idle+=simDt;if(S.idle>=180)startAsk('idle');}else if(S.speed>=.3)S.idle=0;
+  if(S.trip&&!S.arrived){S.left-=simDt;if(S.left<=0&&!S.overdue&&!S.sos)onOverdue();}
+  if(S.overdue&&!S.sos){S.grace-=dt;if(S.grace<=0)sendSOS('late');}
+  if(S.ask&&!S.sos){S.ask.left-=dt*3;if(S.ask.left<=0)sendSOS(S.ask.kind==='idle'?'idle':'auto');}
+  if(S.hold){S.hold.ms+=dt*1000;if(S.hold.ms>=HOLD_MS)onHoldDone();}
+  // chuyển động
+  const L=RT[S.route].len;
+  if(S.cruise){let t=CRUISE;const rem=L-S.s;if(rem<60)t=Math.max(0,CRUISE*(rem-6)/54);if(rem<=6)t=0;
+    if(S.route==='B'&&S.s>MAN-45&&S.s<MAN+8)t=Math.min(t,9);
+    if(S.stopAt!=null){const d=S.stopAt-S.s;t=Math.min(t,d<40?CRUISE*Math.max(0,d)/40:CRUISE);if(d<=.5)t=0;}S.target=t;}
+  const acc=S.target<S.speed?S.decel:25;S.speed+=clamp(S.target-S.speed,-acc*dt,25*dt);if(S.speed<.05&&S.target===0)S.speed=0;
+  const prev=S.s;S.s=Math.min(L-3,S.s+S.speed*dt);
+  if(S.route==='B'&&prev<MAN&&S.s>=MAN&&S.speed>3){S.spike=2.3+Math.random()*.5;S.bump=1;
+    log('Xe qua nắp cống: rung '+(0.3+S.spike).toFixed(1)+' g < ngưỡng '+THR.toFixed(1)+' g → bộ lọc bỏ qua, KHÔNG báo.','y');}
+  if(S.trip&&!S.arrived&&S.s>=L-9&&S.speed<.5)onArrive();
+  // rung chấn
+  S.spike*=Math.pow(.002,dt);S.bump=Math.max(0,S.bump-dt*1.3);
+  S.vib=.22+Math.random()*.18*(S.speed/CRUISE+.2)+S.spike;S.peak=Math.max(S.peak,S.vib);
+  const now=performance.now();S.hist.push({t:now,v:S.vib});while(S.hist.length&&now-S.hist[0].t>10000)S.hist.shift();
+  checkImpact();
+  // ngã xe
+  if(S.fall>0&&S.fall<1)S.fall=Math.min(1,S.fall+dt*2.2);
+  S.crash=Math.max(0,S.crash-dt);
+  // kẻ phạm tội
+  const th=S.thief;
+  if(th.mode==='follow'){const gap=S.s-th.s;th.s+=(gap>26?CRUISE*2.6:S.speed)*dt;th.s=Math.min(th.s,S.s-26);th.lat=lerp(th.lat,-2,dt*2);th.lean=0;}
+  else if(th.mode==='attack'||th.mode==='close'){
+    th.s+=Math.max(S.speed*1.5,CRUISE*1.8)*dt;if(th.s>S.s-1.2)th.s=S.s-1.2;
+    th.lat=lerp(th.lat,th.mode==='attack'?-6:-2.6,dt*2.5);
+    if(th.mode==='attack'&&S.s-th.s<=1.5&&th.lat<-5.2){th.mode='kick';th.k=0;}}
+  else if(th.mode==='kick'){th.k+=dt;th.s=S.s-1.0;th.lat=lerp(th.lat,-1.5,dt*5);th.lean=lerp(th.lean||0,.5,dt*6);
+    if(th.k>.55&&!S.fall){knockDown();th.mode='after';th.k=0;}}
+  else if(th.mode==='after'){th.k+=dt;th.s=Math.min(RT[S.route].len-3,th.s+CRUISE*1.2*dt);th.lat=lerp(th.lat,-3,dt*2);th.lean=lerp(th.lean||0,0,dt*3);if(th.k>2.5)th.mode='stay';}
+  // gói tin lên đám mây mỗi giây
+  if(S.trip){S.cloud.acc+=dt;if(S.cloud.acc>=1){S.cloud.acc=0;doBeat();}watchdog();}
+  const d=(S.cloud.last?S.cloud.last.s:0)-S.rdisp;S.rdisp+=d*Math.min(1,dt*5);
+}
+function knockDown(){S.fall=.001;S.fallDir=-1;S.crash=1.2;S.spike=7.6;S.decel=14;S.cruise=false;S.target=0;S.chip.on=true;
+  log('Đối tượng đâm quật ngã xe! Rung chấn tăng vọt.','r');banner('💥 Xe bị quật ngã!','bad');const f=$('flash');f.style.opacity='.45';setTimeout(()=>{f.style.opacity='0';},180);beep(1,200);}
+
+/* ===== 10. CẢNH BẢN ĐỒ 2D ===== */
+let seed=7;const rnd=()=>{seed=(seed*16807)%2147483647;return seed/2147483647;};
+function dmin(x,y,ks){let m=1e9;(ks||['A','B']).forEach(k=>{const P=RT[k].pts;for(let i=0;i<P.length;i+=6){const d=Math.hypot(P[i][0]-x,P[i][1]-y);if(d<m)m=d;}});return m;}
+function buildScene2D(){
+  let b='',w='',lamps='',cars='';
+  for(let x=14;x<790;x+=46)for(let y=14;y<470;y+=46){
+    const cx=x+rnd()*10,cy=y+rnd()*10,bw=24+rnd()*16,bh=22+rnd()*14;
+    if(dmin(cx,cy)<42)continue;
+    if(Object.keys(ZONES).some(z=>Math.hypot(ZONES[z].x-cx,ZONES[z].y-cy)<48))continue;
+    BLD.push({cx:cx,cy:cy,bw:bw,bh:bh,a:dmin(cx,cy,['A'])<110});
+    b+='<rect x="'+(cx-bw/2).toFixed(1)+'" y="'+(cy-bh/2).toFixed(1)+'" width="'+bw.toFixed(1)+'" height="'+bh.toFixed(1)+'" rx="2" fill="#0d1320" stroke="#141c2c"/>';
+    if(dmin(cx,cy,['A'])<110&&rnd()<.7)w+='<rect x="'+(cx-3).toFixed(1)+'" y="'+(cy-2).toFixed(1)+'" width="4" height="5" fill="#ffd9a0" opacity=".85"/>';
+  }
+  const lp=(k,s)=>{const p=placeAt(k,s,17);lamps+='<circle cx="'+p.x.toFixed(1)+'" cy="'+p.y.toFixed(1)+'" r="44" fill="url(#lamp)"/><circle cx="'+p.x.toFixed(1)+'" cy="'+p.y.toFixed(1)+'" r="2.6" fill="#fde68a"/>';};
+  for(let s=30;s<RT.A.len-20;s+=64)lp('A',s);
+  for(let s=30;s<RT.B.len-20;s+=64)if(s<130||s>RT.B.len-130)lp('B',s);
+  [14,28,42].forEach((o,i)=>{const p=placeAt('A',JAM+o,i%2?-5:5);cars+='<rect x="'+(p.x-11).toFixed(1)+'" y="'+(p.y-6).toFixed(1)+'" width="22" height="12" rx="3" fill="'+['#7c2d12','#1e3a5f','#3f3f46'][i]+'" transform="rotate('+(p.h*57.3).toFixed(0)+' '+p.x.toFixed(1)+' '+p.y.toFixed(1)+')"/>';});
+  const mh=pos('B',MAN),at=pos('B',ATT),zs=Object.keys(ZONES).map(z=>{const o=ZONES[z];return '<circle cx="'+o.x+'" cy="'+o.y+'" r="30" fill="rgba(74,222,128,.08)" stroke="#4ade80" stroke-dasharray="5 4"/><text x="'+o.x+'" y="'+(o.y+4)+'" fill="#86efac" font-size="12" text-anchor="middle" font-weight="700">'+o.n+'</text>';}).join('');
+  const bike=(id,col,beam)=>'<g id="'+id+'">'+(beam?'<polygon points="12,0 80,-26 80,26" fill="url(#beam)"/>':'')+'<rect x="-17" y="-6.5" width="34" height="13" rx="6.5" fill="'+col+'"/><circle cx="1" cy="0" r="6.5" fill="#f1f5f9"/><circle cx="13" cy="0" r="3" fill="#ef4444"/></g>';
+  let tp='';for(let s=TUN0;s<=TUN1;s+=6){const q=pos('A',s);tp+=q.x.toFixed(1)+','+q.y.toFixed(1)+' ';}
+  $('scene2d').innerHTML='<svg viewBox="0 0 800 480" preserveAspectRatio="xMidYMid meet"><defs><radialGradient id="lamp"><stop offset="0" stop-color="#fde68a" stop-opacity=".5"/><stop offset="1" stop-color="#fde68a" stop-opacity="0"/></radialGradient>'+
+   '<linearGradient id="beam" x1="0" x2="1"><stop offset="0" stop-color="#fff7cc" stop-opacity=".6"/><stop offset="1" stop-color="#fff7cc" stop-opacity="0"/></linearGradient>'+
+   '<radialGradient id="pls"><stop offset="0" stop-color="#ef4444" stop-opacity=".75"/><stop offset="1" stop-color="#ef4444" stop-opacity="0"/></radialGradient></defs>'+
+   '<rect width="800" height="480" fill="#05070c"/>'+b+w+
+   ['A','B'].map(k=>'<path d="'+RT[k].d+'" fill="none" stroke="#1b212c" stroke-width="26" stroke-linecap="round"/><path d="'+RT[k].d+'" fill="none" stroke="#3b4456" stroke-width="1.5" stroke-dasharray="9 11"/>').join('')+
+   lamps+zs+'<g id="tun2d" style="display:none"><polyline points="'+tp+'" fill="none" stroke="#000" stroke-width="30" stroke-linecap="round" opacity=".85"/><polyline points="'+tp+'" fill="none" stroke="#fbbf24" stroke-width="2" stroke-dasharray="6 5"/><text x="'+pos('A',(TUN0+TUN1)/2).x+'" y="'+(pos('A',(TUN0+TUN1)/2).y+34)+'" fill="#fbbf24" font-size="12" text-anchor="middle">hầm chui · mất sóng 4G</text></g>'+
+   '<text x="300" y="462" fill="#6a7a92" font-size="13" text-anchor="middle">TUYẾN A · sáng đèn, đông dân cư (dài hơn)</text>'+
+   '<text x="470" y="206" fill="#7a5a5a" font-size="13" text-anchor="middle">TUYẾN B · ngắn hơn nhưng vắng, ít đèn</text>'+
+   '<circle cx="'+mh.x+'" cy="'+mh.y+'" r="7" fill="#2b3340" stroke="#94a3b8" stroke-width="2"/><text x="'+(mh.x-6)+'" y="'+(mh.y+26)+'" fill="#94a3b8" font-size="11" text-anchor="middle">Nắp cống</text>'+
+   '<text x="'+at.x+'" y="'+(at.y-22)+'" fill="#a05a5a" font-size="11" text-anchor="middle">đoạn vắng, không đèn</text>'+
+   '<g id="jam" style="display:none">'+cars+'<text x="'+(pos('A',JAM+28).x)+'" y="'+(pos('A',JAM+28).y+30)+'" fill="#fbbf24" font-size="11" text-anchor="middle">kẹt xe</text></g>'+
+   '<circle id="ring2d" r="0" fill="url(#pls)" opacity="0"/>'+bike('g_thief','#b91c1c',false)+'<text id="t_thief" fill="#fca5a5" font-size="11" text-anchor="middle">Đối tượng</text>'+
+   bike('g_rider','#22c55e',true)+'<text id="t_rider" fill="#86efac" font-size="11" text-anchor="middle">Bạn (Mai)</text>'+'<text id="hand2d" font-size="24" text-anchor="middle" style="display:none">👆</text>'+
+   '<text id="crash2d" font-size="34" text-anchor="middle" style="display:none">💥</text></svg>';
+}
+function update2D(){
+  const r=placeAt(S.route,S.s,0);let tf='translate('+r.x+','+r.y+') rotate('+(r.h*57.3)+')';
+  if(S.bump>0)tf='translate('+(r.x+(Math.random()-.5)*4*S.bump)+','+(r.y+(Math.random()-.5)*4*S.bump)+') rotate('+(r.h*57.3)+')';
+  if(S.fall>0)tf='translate('+r.x+','+r.y+') rotate('+(r.h*57.3+S.fall*80)+')';
+  const gr=$('g_rider');if(!gr)return;gr.setAttribute('transform',tf);
+  gr.firstElementChild&&gr.querySelector('polygon')&&gr.querySelector('polygon').setAttribute('opacity',S.fall>0?0:1);
+  gr.querySelector('rect').setAttribute('fill',S.fall>0?'#ef4444':'#22c55e');
+  const lr=$('t_rider');lr.setAttribute('x',r.x);lr.setAttribute('y',r.y-18);{const hd=$('hand2d'),pr=!!S.hold||(performance.now()-(S.tapAt||0)<700);if(hd){hd.style.display=pr?'':'none';hd.setAttribute('x',r.x+4);hd.setAttribute('y',r.y-30);}}
+  const th=S.thief,gt=$('g_thief'),lt=$('t_thief');
+  if(th.mode==='off'){gt.style.display='none';lt.style.display='none';}
+  else{const q=placeAt(S.route,th.s,th.lat);gt.style.display='';lt.style.display='';gt.setAttribute('transform','translate('+q.x+','+q.y+') rotate('+(q.h*57.3)+')');lt.setAttribute('x',q.x);lt.setAttribute('y',q.y+24);}
+  const cr=$('crash2d');if(S.crash>0){cr.style.display='';cr.setAttribute('x',r.x);cr.setAttribute('y',r.y-14);}else cr.style.display='none';
+  $('jam').style.display=S.jam?'':'none';$('tun2d').style.display=S.tunnelOn?'':'none';
+  const rg=$('ring2d');if(S.sos){const k=((performance.now()-(S.sos.rt||(S.sos.rt=performance.now())))/1200)%1;rg.setAttribute('cx',r.x);rg.setAttribute('cy',r.y);rg.setAttribute('r',10+60*k);rg.setAttribute('opacity',1-k);}else rg.setAttribute('opacity',0);
+}
+
+/* ===== 11. APP NGƯỜI LÁI ===== */
+function mmap(id,cur){const route=S.route;
+  return '<div class="minimap"><svg viewBox="0 0 800 480"><rect width="800" height="480" fill="#070a11"/>'+
+   ['A','B'].map(k=>'<path d="'+RT[k].d+'" fill="none" stroke="'+(k===route&&cur?(k==='A'?'#38bdf8':'#fb923c'):'#243044')+'" stroke-width="'+(k===route&&cur?14:9)+'" stroke-linecap="round"/>').join('')+
+   '<circle cx="735" cy="140" r="14" fill="#16a34a"/><text x="735" y="118" fill="#86efac" font-size="22" text-anchor="middle">Nhà</text>'+
+   '<circle cx="70" cy="360" r="11" fill="#475569"/><text x="70" y="392" fill="#94a3b8" font-size="22" text-anchor="middle">Chỗ làm</text>'+
+   (id?'<circle id="'+id+'Ring" r="30" fill="url(#pls)" style="display:none"/><circle id="'+id+'" cx="70" cy="360" r="15" fill="#ef4444" stroke="#fff" stroke-width="5"/>':'')+
+   '<defs><radialGradient id="pls"><stop offset="0" stop-color="#ef4444" stop-opacity=".7"/><stop offset="1" stop-color="#ef4444" stop-opacity="0"/></radialGradient></defs></svg></div>';}
+function setU(n){S.u=n;renderU();}
+function renderU(){
+  const I=info(S.route),u=S.u;let h='';
+  if(uScreens[u]){h=uScreens[u]();}
+  else if(u==='home'){
+    h='<div class="a-h">Xin chào, Mai 👋</div><p class="a-s">Bạn muốn đi đâu tối nay?</p>'+
+      '<div class="fld"><label>Điểm đi</label><input type="text" value="Chỗ làm (vị trí hiện tại)" readonly></div>'+
+      '<div class="fld"><label>Điểm đến</label><div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px">'+
+      Object.keys(ZONES).map(z=>'<button class="b sm'+(S.dest===z?' on':'')+'" data-act="dest" data-v="'+z+'">'+ZONES[z].n+'</button>').join('')+'</div></div>'+
+      '<div class="row"><span>Cho phép Mẹ Lan xem dữ liệu<small>vị trí, tốc độ, trạng thái chuyến đi</small></span><button class="sw'+(S.allow?' on':'')+'" data-act="allow" aria-label="Cho phép người thân"></button></div>'+
+      '<div class="row"><span>Chip đã ghép<small>Bluetooth · pin chip 87%</small></span><span class="pill ok">Sẵn sàng</span></div>'+
+      '<button class="btnA" data-act="toroutes">Xem tuyến đường an toàn</button>';
+  }else if(u==='routes'){
+    h='<div class="a-h">Chọn tuyến đường</div><p class="a-s">App đề xuất tuyến sáng đèn, đông dân cư.</p>'+
+      ['A','B'].map(k=>{const i=info(k);return '<div class="rt'+(S.route===k?' on':'')+'" data-act="pick" data-v="'+k+'"><b>Tuyến '+k+(k==='A'?' <span class="pill ok">Đề xuất</span>':' <span class="pill warn">Đoạn vắng</span>')+'</b><small>'+i.min+' phút · '+i.km.toFixed(1).replace('.',',')+' km</small><small>'+(k==='A'?'Sáng đèn, đông dân cư · an toàn 9/10':'Ít đèn, vắng người · an toàn 4/10')+'</small></div>';}).join('')+
+      mmap(null,true)+'<div class="kvs"><div>Dự kiến đến<b>'+hm(S.clock+I.eta)+'</b></div><div>Mốc đếm ngược<b>'+mmss(I.deadline)+'</b></div></div>'+
+      '<button class="btnA g" data-act="start">Bắt đầu chuyến đi (gửi ETA sang chip)</button>';
+  }else if(u==='trip'||u==='overdue'){
+    const od=u==='overdue';
+    h='<div class="a-h">'+(od?'⚠ Đã quá giờ dự kiến':'Đang di chuyển')+'</div><p class="a-s">'+(od?'Chip đang sáng đèn vàng. Bạn vẫn ổn chứ?':'Mẹ Lan đang theo dõi, không cần gọi điện.')+'</p>'+
+      '<div class="big'+(od?' red':'')+'" id="uCnt">00:00</div><p class="a-s" style="text-align:center;margin-top:-4px">'+(od?'thời gian quá độ':'thời gian còn lại đến mốc dự kiến')+'</p>'+
+      mmap('uDot',true)+'<div class="kvs"><div>Tốc độ<b id="uSpd">0 km/h</b></div><div>Rung chấn<b id="uVib">0.3 g</b></div><div>GPS<b>Tốt</b></div><div>Chip<b>'+(S.chip.alive?'Kết nối':'Mất')+'</b></div></div>'+
+      (od?'<button class="btnA o" data-act="extend">Gia hạn thêm 15 phút</button><p class="a-s" style="text-align:center">hoặc nhấn đúp vào chip trên xe</p>':'');
+  }else if(u==='ask'){
+    h='<div class="alertbox red"><h3>'+(S.ask&&S.ask.kind==='idle'?'Xe dừng quá lâu ở nơi vắng':'Độ rung chấn đã vượt ngưỡng')+'</h3><p>'+(S.ask&&S.ask.kind==='idle'?'Đã dừng hơn 3 phút ở đoạn đường vắng.':'Phát hiện va đập mạnh / ngã xe.')+'</p><p><b>Bạn ổn chứ?</b></p><div class="big red" id="askCnt">30</div><p>giây để phản hồi, nếu không hệ thống tự gửi SOS</p></div>'+
+      '<button class="btnA g" data-act="imok">Tôi an toàn</button>';
+  }else if(u==='sent'){
+    h='<div class="alertbox red"><h3>Hệ thống cảnh báo đã gửi SMS về cho người đồng hành</h3><p>'+SOSK[S.sos.kind].cause+'</p></div>'+
+      '<div class="row"><span>Mẹ Lan<small>'+P.rphone+'</small></span><span class="pill ok">✔ đã nhận SMS</span></div>'+
+      '<div class="row"><span>Vị trí gửi đi<small>'+S.sos.gps+'</small></span><span class="pill ok">✔</span></div>'+
+      (S.sos.kind==='manual'?'<p class="a-s">Chip đã rung nhẹ xác nhận. Xe không kêu còi, không chớp đèn.</p>':'')+
+      '<p class="a-s">Chip tiếp tục gửi vị trí mỗi giây để người thân theo dõi.</p>';
+  }else if(u==='arrive'){
+    h='<div class="alertbox grn"><h3>Xác nhận bạn đã đến điểm an toàn</h3><p>Bạn đã vào vùng “Nhà” và dừng xe.</p></div>'+
+      '<div class="kvs"><div>Đến lúc<b>'+hm(S.clock)+'</b></div><div>Mốc dự kiến<b>'+hm(S.clock+Math.max(0,S.left))+'</b></div></div>'+
+      (S.confirmed?'<div class="alertbox grn"><p>✔ Đã báo Mẹ Lan: “Đã về an toàn”. Phiên theo dõi đã đóng.</p></div>':'<button class="btnA g" data-act="confirm">Xác nhận đã an toàn</button>');
+  }
+  $('uScreen').innerHTML=nm(h);hl();
+}
+
+/* ===== 12. APP NGƯỜI THÂN ===== */
+function renderR(){
+  const t=S.tab;
+  if(S.rs!=='live'){$('rTabs').style.display='none';$('rScreen').innerHTML=nm(rScreens[S.rs]());hl();return;}
+  $('rTabs').style.display='flex';
+  document.querySelectorAll('#rTabs button').forEach(b=>b.classList.toggle('on',b.dataset.tab===t));
+  const bd=$('smsBadge');bd.style.display=S.smsNew?'':'none';bd.textContent=S.smsNew;
+  let h='';
+  if(t==='live'){
+    const st=S.sos?['bad','SOS khẩn cấp']:S.cloud.lost?['warn','Mất tín tín hiệu'.replace('tín tín','tín')]:S.arrived?['ok','Đã về an toàn']:S.trip?(S.overdue?['warn','Quá giờ dự kiến']:['ok','Đang di chuyển']):['','Chưa có chuyến đi'];
+    h='<div class="a-h">Đang theo dõi Mai</div><p><span class="pill '+st[0]+'">'+st[1]+'</span></p>';
+    if(!S.trip&&!S.arrived&&!S.sos)h+='<p class="a-s" style="margin-top:14px">Khi Mai bắt đầu di chuyển, vị trí xe hiện ở đây theo thời gian thực. Bạn không cần gọi điện làm phiền.</p>';
+    else h+=mmap('rDot',true)+'<div class="kvs"><div>Tọa độ<b id="rPos" style="font-size:11px">--</b></div><div>Tốc độ<b id="rSpd">0 km/h</b></div><div>Dự kiến đến<b id="rEta">--:--</b></div><div>Cập nhật<b>mỗi 1 giây</b></div></div>';
+    h+='<div class="feed">'+S.feed.map(f=>'<div class="fi '+f.c+'"><b>'+f.t+'</b><small>'+hm(f.at)+' · '+f.sub+'</small></div>').join('')+'</div>';
+  }else if(t==='store'){h=storeHtml();}else{
+    h='<div class="a-h">Tin nhắn SMS</div><p class="a-s">SMS do hệ thống gửi tới người được cấp quyền.</p>'+(S.sms.length?S.sms.map(m=>'<div class="sms'+(m.kind==='sos'?' bad':'')+'">'+m.text+'<small>'+hm(m.at)+'</small></div>').join(''):'<p class="a-s">Chưa có tin nhắn.</p>');
+  }
+  $('rScreen').innerHTML=nm(h);
+}
+function showSos(){
+  const o=S.sos,K=SOSK[o.kind];let best=null,bd=1e9;STATIONS.forEach(s=>{const p=pos(S.route,o.s),d=Math.hypot(s.x-p.x,s.y-p.y)*8;if(d<bd){bd=d;best=s;}});
+  $('rSos').innerHTML='<div class="shk"><h3><span class="dot"></span>'+K.h+'</h3><p style="font-size:12px;color:#fca5a5;margin:4px 0">🔔 Chuông lớn · bỏ qua chế độ im lặng</p>'+
+   '<p style="font-size:14px;margin:8px 0"><b>Mai</b> cần giúp đỡ ngay.</p>'+mmap('rsDot',true)+
+   '<div class="kvs"><div>Tọa độ GPS (trực tiếp)<b style="font-size:11px" id="rsPos">'+o.gps+'</b></div><div>Thời điểm<b>'+hm(o.t)+'</b></div></div>'+
+   '<div class="fi bad"><b>Tình trạng sự cố</b><small>'+K.st+'</small></div>'+
+   '<div class="fi"><b>Trạm cứu hộ gần nhất</b><small>'+best.n+' · cách ~'+Math.round(bd)+' m</small></div>'+
+   (S.phone.alive?'<div class="fi"><b>● Ghi âm hiện trường → đẩy lên Cloud</b><div class="wave" id="wave">'+Array(30).fill('<i></i>').join('')+'</div></div>':'<div class="fi"><b>Ghi âm hiện trường</b><small>Không có: điện thoại đã bị giật hoặc hỏng.</small></div>')+
+   '<button class="btnA r" data-act="call113">Gọi 113 kèm tọa độ</button><button class="btnA o" data-act="callu">Gọi cho Mai</button><button class="btnA g" data-act="coming">Tôi đang đến</button><button class="btnA o" data-act="closeSos">Thu nhỏ màn hình này</button></div>';
+  $('rSos').classList.add('show');beep(4,900);const p=$('rphone');p.classList.remove('buzz');void p.offsetWidth;p.classList.add('buzz');
+}
+
+/* ===== 13. CẬP NHẬT MỖI KHUNG HÌNH ===== */
+function setT(id,t){const e=$(id);if(e&&e.textContent!==t)e.textContent=t;}
+function setDot(id,p){const e=$(id);if(e){e.setAttribute('cx',p.x);e.setAttribute('cy',p.y);}}
+function updateDyn(){
+  setT('uTime',hm(S.clock));setT('rTime',hm(S.clock));
+  setT('hSpd',String(Math.round(S.speed*1.6)));setT('hEta',S.trip?(S.left>=0?mmss(S.left):'+'+mmss(-S.left)):'--:--');setT('hVib',S.vib.toFixed(1));setT('hThr',THR.toFixed(1));
+  const vb=$('hVibBar');vb.style.width=clamp(S.vib/(THR*1.6)*100,2,100)+'%';vb.style.background=S.vib>=THR?'#ef4444':S.vib>THR*.5?'#fbbf24':'#4ade80';$('hThrMark').style.left=(100/1.6)+'%';
+  if(S.u==='trip'||S.u==='overdue'){setT('uCnt',S.left>=0?mmss(S.left):'+'+mmss(-S.left));setT('uSpd',Math.round(S.speed*1.6)+' km/h');setT('uVib',S.vib.toFixed(1)+' g');setDot('uDot',pos(S.route,S.s));}
+  if(S.u==='ask')setT('askCnt',String(S.ask?Math.ceil(S.ask.left):0));
+  const lc=S.cloud.last;
+  if(lc&&S.tab==='live'){const p=pos(lc.route,S.rdisp);setDot('rDot',p);setT('rPos',gps(p));setT('rSpd',Math.round(lc.speed*1.6)+' km/h');setT('rEta',hm(S.clock+(RT[lc.route].len-lc.s)*(RATE/CRUISE)));}
+  if(lc&&S.tab==='store')setDot('rLast',pos(lc.route,lc.s));
+  $('uphone').classList.toggle('broken',!!S.phone.cracked);
+  if(S.sos){const sp=S.sos.kind==='failsafe'?S.sos.s:S.s;setDot('rsDot',pos(S.route,sp));setT('rsPos',gps(pos(S.route,sp)));const w=$('wave');if(w)Array.prototype.forEach.call(w.children,i=>{i.style.height=(4+Math.random()*22)+'px';});}
+  // chip
+  const rg=$('ring'),f=S.hold?clamp(S.hold.ms/HOLD_MS,0,1):0;rg.setAttribute('stroke-dashoffset',(263.9*(1-f)).toFixed(1));
+  if(S.hold)setT('chipTxt','Đang giữ... '+(S.hold.ms/1000).toFixed(1)+' / 3.0 giây');
+  const lc2={off:'',g:'g',a:'a',r:'r'}[S.chip.led];$('led').className='led '+lc2;
+  setT('chipState',!S.chip.alive?'Đã hỏng / mất kết nối':!S.chip.on?'Chưa bật':S.overdue?'Quá giờ – đèn vàng nháy':S.sos?'Đã gửi SOS (xe im lặng, không đèn)':S.trip?'Đang giám sát (đèn xanh)':'Đã tắt');
+  $('chipbtn').disabled=!(S.chip.on&&S.chip.alive);$('chipbtn').classList.toggle('hold',!!S.hold);
+  // liên kết
+  const ls=(id,ok,t)=>{const e=$(id);e.textContent=t;e.className='st '+(ok?'ok':'off');};
+  const bl=S.chip.on&&S.chip.alive&&S.phone.alive,cl=S.trip&&S.chip.alive&&S.net,pl=S.trip&&S.phone.alive&&S.net;ls('lnkBle',bl,bl?'đã ghép':S.chip.on?'mất kết nối':'chưa ghép');ls('lnkChip',cl,cl?'đang gửi':S.trip&&S.chip.alive?'mất sóng (lưu cục bộ)':'tắt');ls('lnkPhone',pl,pl?'đang gửi':S.trip&&S.phone.alive?'mất sóng':'tắt');
+  setT('lastBeat',lc?hm(lc.t)+' · '+lc.vib.toFixed(1)+' g':'--');
+  setT('srvState',S.cloud.lost&&!S.sos?'Máy chủ: MẤT TÍN HIỆU, đang xét độ rung chấn cuối...':S.sos?'Máy chủ: ĐÃ GỬI SOS, tiếp tục theo dõi vị trí.':S.trip?(S.overdue?'Máy chủ: quá giờ, chờ phản hồi...':'Máy chủ: đang nhận GPS, vận tốc, rung chấn mỗi giây.'):S.arrived?'Máy chủ: chuyến đã kết thúc an toàn.':'Máy chủ: chưa có chuyến đi.');
+  drawChart();
+}
+function drawChart(){const cv=$('vibChart'),c=cv.getContext('2d'),W=cv.width,H=cv.height,now=performance.now(),mx=THR*1.6;
+  c.clearRect(0,0,W,H);const ty=H-THR/mx*H;c.strokeStyle='#ef4444';c.setLineDash([6,4]);c.beginPath();c.moveTo(0,ty);c.lineTo(W,ty);c.stroke();c.setLineDash([]);
+  c.fillStyle='#ef4444';c.font='11px sans-serif';c.fillText('ngưỡng '+THR.toFixed(1)+' g',6,ty-4);
+  c.strokeStyle='#38bdf8';c.lineWidth=1.6;c.beginPath();S.hist.forEach((p,i)=>{const x=W-(now-p.t)/10000*W,y=H-clamp(p.v/mx,0,1)*H;if(i)c.lineTo(x,y);else c.moveTo(x,y);});c.stroke();c.lineWidth=1;}
+
+/* ===== 16. CẢNH 3D: THẾ GIỚI ===== */
+let R3=null, VIEW='2d';
+const K3=0.2, BLD=[], HALFW=3;
+const W3=(x,y)=>({x:(x-400)*K3,z:(y-250)*K3});
+function ctex(w,h,draw){const c=document.createElement('canvas');c.width=w;c.height=h;draw(c.getContext('2d'),w,h);return new THREE.CanvasTexture(c);}
+function labelSprite(text,color,sx){
+  const t=ctex(320,72,(c,w,h)=>{c.fillStyle='rgba(6,10,18,.8)';c.fillRect(0,6,w,h-12);c.strokeStyle=color;c.lineWidth=3;c.strokeRect(2,8,w-4,h-16);c.font='bold 34px system-ui,sans-serif';c.textAlign='center';c.textBaseline='middle';c.fillStyle=color;c.fillText(text,w/2,h/2+1);});
+  const s=new THREE.Sprite(new THREE.SpriteMaterial({map:t,transparent:true}));s.scale.set(sx||4,(sx||4)*72/320,1);return s;}
+function glowTex(rgb){return ctex(128,128,(c,w,h)=>{const g=c.createRadialGradient(64,64,0,64,64,64);g.addColorStop(0,'rgba('+rgb+',.9)');g.addColorStop(.4,'rgba('+rgb+',.25)');g.addColorStop(1,'rgba('+rgb+',0)');c.fillStyle=g;c.fillRect(0,0,w,h);});}
+function norm(k,s){const h=head(k,s);return {nx:-Math.sin(h),nz:Math.cos(h),h:h};}
+
+function build3DWorld(scene){
+  const M=(c,o)=>new THREE.MeshStandardMaterial(Object.assign({color:c,roughness:.8,metalness:.1},o||{}));
+  const B=c=>new THREE.MeshBasicMaterial({color:c});
+  const g0=new THREE.Mesh(new THREE.PlaneGeometry(500,500),M(0x090d13,{roughness:1,metalness:0}));g0.rotation.x=-Math.PI/2;scene.add(g0);
+  // sao & trăng
+  const sp=[];for(let i=0;i<380;i++){const a=Math.random()*6.283,e=.25+Math.random()*1.1,r=230;sp.push(Math.cos(a)*Math.cos(e)*r,Math.sin(e)*r*.8+30,Math.sin(a)*Math.cos(e)*r);}
+  const sg=new THREE.BufferGeometry();sg.setAttribute('position',new THREE.Float32BufferAttribute(sp,3));
+  scene.add(new THREE.Points(sg,new THREE.PointsMaterial({color:0xffffff,size:1.4,sizeAttenuation:false,fog:false})));
+  const moon=new THREE.Mesh(new THREE.SphereGeometry(5,24,16),new THREE.MeshBasicMaterial({color:0xe8eeff,fog:false}));moon.position.set(-90,90,-140);scene.add(moon);
+  // đường
+  function ribbon(k,o1,o2,y,mat){const pos=[],idx=[],N=Math.ceil(RT[k].len/3);
+    for(let i=0;i<=N;i++){const s=Math.min(RT[k].len,i*3),p=pos3(k,s),n=norm(k,s);
+      pos.push(p.x+n.nx*o1,y,p.z+n.nz*o1,p.x+n.nx*o2,y,p.z+n.nz*o2);if(i<N){const j=i*2;idx.push(j,j+1,j+2,j+1,j+3,j+2);}}
+    const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));g.setIndex(idx);g.computeVertexNormals();scene.add(new THREE.Mesh(g,mat));}
+  const dbl=(c,o)=>{const m=M(c,o);m.side=THREE.DoubleSide;return m;};
+  ['A','B'].forEach((k,i)=>{const y=.012+i*.004;
+    ribbon(k,-HALFW,HALFW,y,dbl(0x181d26,{roughness:.55,metalness:.25}));
+    ribbon(k,-HALFW-1,-HALFW,y+.03,dbl(0x262d3a,{roughness:1,metalness:0}));ribbon(k,HALFW,HALFW+1,y+.03,dbl(0x262d3a,{roughness:1,metalness:0}));
+    ribbon(k,-HALFW+.15,-HALFW+.28,y+.01,new THREE.MeshBasicMaterial({color:0x5d687c,side:THREE.DoubleSide}));
+    ribbon(k,HALFW-.28,HALFW-.15,y+.01,new THREE.MeshBasicMaterial({color:0x5d687c,side:THREE.DoubleSide}));
+    const n=Math.floor(RT[k].len/14),im=new THREE.InstancedMesh(new THREE.BoxGeometry(1.4,.01,.14),B(0x8a93a6),n),d=new THREE.Object3D();
+    for(let j=0;j<n;j++){const s=8+j*14,p=pos3(k,s),h=head(k,s);d.position.set(p.x,y+.02,p.z);d.rotation.set(0,-h,0);d.updateMatrix();im.setMatrixAt(j,d.matrix);}scene.add(im);});
+  // nhà dân
+  const wall=ctex(128,128,(c,w,h)=>{c.fillStyle='#10151f';c.fillRect(0,0,w,h);c.fillStyle='#0a0e16';for(let y=8;y<h;y+=32)for(let x=8;x<w;x+=32)c.fillRect(x,y,16,20);});
+  const mkLit=pr=>ctex(128,128,(c,w,h)=>{c.fillStyle='#000';c.fillRect(0,0,w,h);for(let y=8;y<h;y+=32)for(let x=8;x<w;x+=32)if(rnd()<pr){c.fillStyle=rnd()<.7?'#ffd9a0':'#bcd7ff';c.fillRect(x,y,16,20);}});
+  const litD=mkLit(.5),litS=mkLit(.1);
+  BLD.forEach((b,i)=>{const w=b.bw*K3,d=b.bh*K3,ht=3+((i*37)%7)*1.15,c=W3(b.cx,b.cy);
+    const t1=wall.clone(),t2=(b.a?litD:litS).clone();[t1,t2].forEach(t=>{t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(Math.max(1,Math.round(w/3)),Math.max(1,Math.round(ht/3)));t.needsUpdate=true;});
+    const m=new THREE.Mesh(new THREE.BoxGeometry(w,ht,d),new THREE.MeshStandardMaterial({map:t1,emissive:0xffffff,emissiveMap:t2,emissiveIntensity:.95,roughness:.95,metalness:0}));
+    m.position.set(c.x,ht/2,c.z);scene.add(m);
+    const rf=new THREE.Mesh(new THREE.BoxGeometry(w+.3,.25,d+.3),M(0x0a0d14,{roughness:1}));rf.position.set(c.x,ht+.12,c.z);scene.add(rf);});
+  // cây
+  ['A','B'].forEach(k=>{for(let s=50,i=0;s<RT[k].len-30;s+=(k==='A'?70:110),i++){const p=pos3(k,s),n=norm(k,s),o=(i%2?1:-1)*(HALFW+2.6);
+    const x=p.x+n.nx*o,z=p.z+n.nz*o,tr=new THREE.Mesh(new THREE.CylinderGeometry(.1,.15,1.5,8),M(0x2a1d14));tr.position.set(x,.75,z);scene.add(tr);
+    const cr=new THREE.Mesh(new THREE.ConeGeometry(1,2.8,10),M(0x0f2a1a,{roughness:1}));cr.position.set(x,2.7,z);scene.add(cr);}});
+  // đèn đường: tuyến A dày, tuyến B chỉ ở hai đầu
+  const pool=glowTex('253,224,138'),poolM=new THREE.MeshBasicMaterial({map:pool,transparent:true,blending:THREE.AdditiveBlending,depthWrite:false});
+  function lamp(k,s){const p=pos3(k,s),n=norm(k,s),ox=n.nx*(HALFW+.6),oz=n.nz*(HALFW+.6);
+    const pole=new THREE.Mesh(new THREE.CylinderGeometry(.07,.1,5.2,8),M(0x2b3340));pole.position.set(p.x+ox,2.6,p.z+oz);scene.add(pole);
+    const arm=new THREE.Mesh(new THREE.BoxGeometry(1.5,.08,.08),M(0x2b3340));arm.position.set(p.x+ox-n.nx*.7,5.2,p.z+oz-n.nz*.7);arm.rotation.y=-Math.atan2(-n.nz,-n.nx);scene.add(arm);
+    const bx=p.x+ox-n.nx*1.4,bz=p.z+oz-n.nz*1.4,bulb=new THREE.Mesh(new THREE.SphereGeometry(.2,12,10),B(0xfff0b8));bulb.position.set(bx,5.1,bz);scene.add(bulb);
+    const pl=new THREE.Mesh(new THREE.CircleGeometry(6.2,32),poolM);pl.rotation.x=-Math.PI/2;pl.position.set(bx,.07,bz);scene.add(pl);
+    const gl=new THREE.Sprite(new THREE.SpriteMaterial({map:glowTex('255,230,150'),transparent:true,blending:THREE.AdditiveBlending,depthWrite:false}));gl.position.set(bx,5.1,bz);gl.scale.set(2.2,2.2,1);scene.add(gl);}
+  for(let s=30;s<RT.A.len-20;s+=64)lamp('A',s);
+  for(let s=30;s<RT.B.len-20;s+=64)if(s<130||s>RT.B.len-130)lamp('B',s);
+  // khu vực an toàn: Nhà, Chỗ làm, Trường
+  function ring(x,z,c){const r=new THREE.Mesh(new THREE.RingGeometry(6.2,6.9,48),new THREE.MeshBasicMaterial({color:c,transparent:true,opacity:.6,side:THREE.DoubleSide}));r.rotation.x=-Math.PI/2;r.position.set(x,.09,z);scene.add(r);}
+  function side(k,s,o){const p=pos3(k,s),n=norm(k,s);return {x:p.x+n.nx*o,z:p.z+n.nz*o,h:n.h};}
+  const hm0=side('A',RT.A.len-3,-10),home=new THREE.Group();home.position.set(hm0.x,0,hm0.z);home.rotation.y=-hm0.h;
+  const hb=new THREE.Mesh(new THREE.BoxGeometry(6,3.4,5),M(0xcfc3b0,{roughness:.9}));hb.position.y=1.7;home.add(hb);
+  const hr=new THREE.Mesh(new THREE.ConeGeometry(4.9,2,4),M(0x7a3b2e,{roughness:.9}));hr.rotation.y=Math.PI/4;hr.position.y=4.4;home.add(hr);
+  const hd=new THREE.Mesh(new THREE.BoxGeometry(.9,1.9,.1),M(0x5a3a22));hd.position.set(0,.95,2.55);home.add(hd);
+  [-1.8,1.8].forEach(x=>{const wn=new THREE.Mesh(new THREE.BoxGeometry(1.1,1.0,.1),B(0xffd58a));wn.position.set(x,2,2.55);home.add(wn);});
+  scene.add(home);const hp=side('A',RT.A.len-3,0);ring(hp.x,hp.z,0x4ade80);
+  const hl=labelSprite('NHÀ','#86efac',4);hl.position.set(hm0.x,6.8,hm0.z);scene.add(hl);
+  const wk0=side('A',2,-10),wk=new THREE.Mesh(new THREE.BoxGeometry(6,6,5),new THREE.MeshStandardMaterial({color:0x1b2a40,emissive:0x2a4a7a,emissiveIntensity:.6,roughness:.4,metalness:.3}));wk.position.set(wk0.x,3,wk0.z);scene.add(wk);
+  const wp=side('A',2,0);ring(wp.x,wp.z,0x94a3b8);const wl=labelSprite('CHỖ LÀM','#cbd5e1',4.6);wl.position.set(wk0.x,7.6,wk0.z);scene.add(wl);
+  const sc=W3(ZONES.school.x,ZONES.school.y),sb=new THREE.Mesh(new THREE.BoxGeometry(8,3.6,4.5),M(0xb8a77a,{roughness:.9}));sb.position.set(sc.x,1.8,sc.z);scene.add(sb);
+  const fl=new THREE.Mesh(new THREE.CylinderGeometry(.05,.05,5,6),M(0xaaaaaa));fl.position.set(sc.x+3,4,sc.z);scene.add(fl);ring(sc.x,sc.z+7,0x4ade80);
+  const sl=labelSprite('TRƯỜNG','#86efac',4);sl.position.set(sc.x,6.2,sc.z);scene.add(sl);
+  // nắp cống trên tuyến B
+  const mp=pos3('B',MAN),mn=norm('B',MAN),mg=new THREE.Group();mg.position.set(mp.x+mn.nx*0,.03,mp.z+mn.nz*0);
+  const md=new THREE.Mesh(new THREE.CylinderGeometry(.5,.5,.04,28),M(0x3a424f,{roughness:.5,metalness:.6}));mg.add(md);
+  const mr=new THREE.Mesh(new THREE.TorusGeometry(.5,.035,8,28),M(0x9aa5b8,{metalness:.7,roughness:.4}));mr.rotation.x=Math.PI/2;mg.add(mr);const wr2=new THREE.Mesh(new THREE.TorusGeometry(.78,.05,8,32),new THREE.MeshBasicMaterial({color:0xfbbf24}));wr2.rotation.x=Math.PI/2;mg.add(wr2);for(let i=0;i<5;i++){const bar=new THREE.Mesh(new THREE.BoxGeometry(.8,.012,.05),M(0x6b7280,{metalness:.6}));bar.position.y=.03;bar.rotation.y=i*Math.PI/5;mg.add(bar);}scene.add(mg);
+  const ml=labelSprite('Nắp cống','#cbd5e1',3.2);ml.position.set(mp.x+mn.nx*0,2.4,mp.z+mn.nz*0);scene.add(ml);
+  const ap=pos3('B',ATT),al=labelSprite('Đoạn vắng, không đèn','#fca5a5',5.6);al.position.set(ap.x,5.4,ap.z-3);scene.add(al);
+  // hầm chui (chỉ hiện ở TH4b)
+  const tun=new THREE.Group(),cm=M(0x1b212b,{roughness:1});
+  for(let s=RT.A.len*.38;s<RT.A.len*.52;s+=6){const p=pos3('A',s),n=norm('A',s),seg=new THREE.Group();seg.position.set(p.x,0,p.z);seg.rotation.y=-n.h;
+    [-1,1].forEach(q=>{const w=new THREE.Mesh(new THREE.BoxGeometry(6.4,4.4,.7),cm);w.position.set(0,2.2,q*(HALFW+.9));seg.add(w);});
+    const rf=new THREE.Mesh(new THREE.BoxGeometry(6.4,.7,2*(HALFW+1.25)),cm);rf.position.y=4.5;seg.add(rf);
+    const ln=new THREE.Mesh(new THREE.BoxGeometry(2.2,.06,.3),B(0xffe9a8));ln.position.y=4.12;seg.add(ln);tun.add(seg);}
+  const tp=pos3('A',(RT.A.len*.38+RT.A.len*.52)/2),tl=labelSprite('HẦM CHUI · mất sóng 4G','#fbbf24',7);tl.position.set(tp.x,7,tp.z);tun.add(tl);scene.add(tun);
+  // xe kẹt (TH2)
+  const jam=new THREE.Group();[[14,1.4,0x7c2d12],[30,-1.4,0x1e3a5f],[46,1.4,0x3f3f46],[62,-1.4,0x6b7280]].forEach(c=>{
+    const p=pos3('A',JAM+c[0]),n=norm('A',JAM+c[0]),car=new THREE.Group();car.position.set(p.x+n.nx*c[1],0,p.z+n.nz*c[1]);car.rotation.y=-n.h;
+    const b=new THREE.Mesh(new THREE.BoxGeometry(4.2,.85,1.8),M(c[2],{roughness:.5,metalness:.4}));b.position.y=.65;car.add(b);
+    const cb=new THREE.Mesh(new THREE.BoxGeometry(2.2,.7,1.6),M(0x0d1218,{roughness:.3,metalness:.5}));cb.position.set(-.1,1.35,0);car.add(cb);
+    [-.7,.7].forEach(z=>{const tl2=new THREE.Mesh(new THREE.BoxGeometry(.06,.18,.4),B(0xff2a2a));tl2.position.set(-2.12,.75,z);car.add(tl2);});
+    [-1.3,1.3].forEach(x=>[-.9,.9].forEach(z=>{const wh=new THREE.Mesh(new THREE.CylinderGeometry(.34,.34,.25,14),M(0x0b0b0b));wh.rotation.x=Math.PI/2;wh.position.set(x,.34,z);car.add(wh);}));jam.add(car);});
+  const jp=pos3('A',JAM+38),jl=labelSprite('Kẹt xe','#fbbf24',3);jl.position.set(jp.x,3.4,jp.z);jam.add(jl);scene.add(jam);
+  return {tunnel:tun,jam:jam};
+}
+function pos3(k,s){const p=pos(k,s),w=W3(p.x,p.y);return {x:w.x,z:w.z};}
+
+/* ===== 17. CẢNH 3D: XE MÁY, NGƯỜI, CAMERA ===== */
+const CAMS={chase:{yaw:0,pitch:.28,dist:5.6,ty:1.15,fwd:1.6},side:{yaw:1.2,pitch:.14,dist:5.2,ty:1,fwd:0},chip:{yaw:.15,pitch:.62,dist:1.5,ty:1.05,fwd:.5},act:{yaw:.95,pitch:.2,dist:8.5,ty:1,fwd:-2.2},map:{yaw:0,pitch:1.05,dist:105,ty:0,fwd:0}};
+const LEDC={off:0x1b2230,g:0x22c55e,a:0xfbbf24,b:0x38bdf8,r:0xef4444};
+function limb(a,b,r,mat){const va=new THREE.Vector3(a[0],a[1],a[2]),vb=new THREE.Vector3(b[0],b[1],b[2]),d=vb.clone().sub(va),len=d.length();
+  const m=new THREE.Mesh(new THREE.CylinderGeometry(r,r,len,10),mat);m.position.copy(va).add(vb).multiplyScalar(.5);m.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),d.normalize());return m;}
+function makeBike(scene,o){
+  const M=(c,x)=>new THREE.MeshStandardMaterial(Object.assign({color:c,roughness:.6,metalness:.2},x||{}));
+  const g=new THREE.Group();g.rotation.order='YXZ';const wheels=[];
+  const add=(geo,mat,x,y,z,rz)=>{const m=new THREE.Mesh(geo,mat);m.position.set(x,y,z);if(rz)m.rotation.z=rz;g.add(m);return m;};
+  const body=M(o.body,{roughness:.35,metalness:.45}),dark=M(0x14161b,{roughness:.8}),chrome=M(0xb8bec8,{metalness:.9,roughness:.25});
+  [-.62,.62].forEach(x=>{const w=new THREE.Group();w.add(new THREE.Mesh(new THREE.TorusGeometry(.27,.075,12,28),M(0x0c0c0c,{roughness:.95,metalness:0})));
+    const rim=new THREE.Mesh(new THREE.CylinderGeometry(.19,.19,.07,18),M(0x8a8f99,{metalness:.8,roughness:.3}));rim.rotation.x=Math.PI/2;w.add(rim);
+    for(let i=0;i<4;i++){const sp=new THREE.Mesh(new THREE.BoxGeometry(.38,.025,.05),M(0xcfd4dc,{metalness:.8}));sp.rotation.z=i*Math.PI/4;w.add(sp);}
+    w.position.set(x,.35,0);g.add(w);wheels.push(w);});
+  add(new THREE.BoxGeometry(.72,.07,.38),dark,.08,.27,0);
+  add(new THREE.BoxGeometry(.86,.34,.36),body,-.38,.52,0);add(new THREE.BoxGeometry(.34,.26,.3),body,-.78,.64,0);
+  add(new THREE.BoxGeometry(.72,.11,.3),M(0x1a1c22,{roughness:.9}),-.32,.74,0);
+  add(new THREE.BoxGeometry(.1,.72,.38),body,.4,.62,0,-.22);add(new THREE.BoxGeometry(.4,.03,.2),body,.64,.66,0,-.1);add(new THREE.BoxGeometry(.4,.03,.2),body,-.62,.66,0,.1);
+  [-.12,.12].forEach(z=>g.add(limb([.62,.35,z],[.46,1.0,z],.03,chrome)));
+  add(new THREE.BoxGeometry(.24,.24,.36),body,.5,1.02,0);
+  const lens=add(new THREE.SphereGeometry(.1,14,12),new THREE.MeshBasicMaterial({color:o.spot?0xfff3c0:0x444444}),.62,1.0,0);lens.scale.set(.6,1,1.4);
+  const hb=add(new THREE.CylinderGeometry(.025,.025,.66,10),dark,.44,1.1,0);hb.rotation.x=Math.PI/2;
+  [-.33,.33].forEach(z=>{const gr=add(new THREE.CylinderGeometry(.04,.04,.14,10),M(0x0a0a0a),.44,1.1,z);gr.rotation.x=Math.PI/2;
+    g.add(limb([.44,1.1,z*.9],[.38,1.28,z*.95],.012,chrome));const mr=add(new THREE.SphereGeometry(.055,10,8),dark,.37,1.3,z*.95);mr.scale.set(.5,1,1.4);});
+  add(new THREE.BoxGeometry(.13,.05,.17),M(0x0a1220,{emissive:0x0a3a5a,emissiveIntensity:.5}),.38,1.16,0,.3);
+  add(new THREE.BoxGeometry(.05,.07,.22),new THREE.MeshBasicMaterial({color:0xcc1f1f}),-.95,.66,0);
+  add(new THREE.BoxGeometry(.02,.15,.22),M(0xe5e7eb),-.94,.46,0);
+  const ex=add(new THREE.CylinderGeometry(.05,.055,.6,10),chrome,-.5,.27,-.22);ex.rotation.z=Math.PI/2;
+  // decal phản quang (4 miếng): 2 bên thân, mặt trước, đuôi
+  const dt=ctex(160,40,(c,w,h)=>{c.fillStyle='#dbeafe';c.fillRect(0,0,w,h);c.fillStyle='#94a3b8';for(let x=-40;x<w;x+=24){c.beginPath();c.moveTo(x,h);c.lineTo(x+14,h);c.lineTo(x+14+h,0);c.lineTo(x+h,0);c.fill();}c.font='bold 22px sans-serif';c.fillStyle='#0b3a6b';c.textAlign='center';c.textBaseline='middle';c.fillText('WAOSAFE',w/2,h/2+1);});
+  const dm=new THREE.MeshStandardMaterial({map:dt,emissive:0x9cc7ff,emissiveMap:dt,emissiveIntensity:.55,roughness:.4}),decals=[];
+  [[-.38,.55,.185,0,.5,.15],[-.38,.55,-.185,Math.PI,.5,.15]].forEach(d=>{const m=new THREE.Mesh(new THREE.PlaneGeometry(d[4],d[5]),dm);m.position.set(d[0],d[1],d[2]);m.rotation.y=d[3];g.add(m);decals.push(m);});
+  const df=new THREE.Mesh(new THREE.PlaneGeometry(.3,.16),dm);df.position.set(.455,.6,0);df.rotation.y=Math.PI/2;df.rotation.z=-.0;df.rotation.order='YXZ';g.add(df);decals.push(df);
+  const dr=new THREE.Mesh(new THREE.PlaneGeometry(.24,.1),dm);dr.position.set(-.955,.66,0);dr.rotation.y=-Math.PI/2;g.add(dr);decals.push(dr);
+  // chip + nút SOS + đèn LED
+  const chipG=new THREE.Group();chipG.position.set(.44,1.2,0);chipG.scale.set(1.3,1.3,1.3);g.add(chipG);
+  const cbm=M(0x20252e,{roughness:.5,metalness:.3}),cbody=new THREE.Mesh(new THREE.BoxGeometry(.13,.05,.2),cbm);chipG.add(cbody);
+  const btn=new THREE.Mesh(new THREE.CylinderGeometry(.036,.036,.025,18),new THREE.MeshStandardMaterial({color:0xef4444,emissive:0xef4444,emissiveIntensity:.9}));btn.position.set(.01,.036,.02);chipG.add(btn);
+  const led=new THREE.Mesh(new THREE.SphereGeometry(.014,10,8),new THREE.MeshBasicMaterial({color:LEDC.off}));led.position.set(-.04,.03,-.07);chipG.add(led);
+  const glow=new THREE.Sprite(new THREE.SpriteMaterial({map:glowTex('255,255,255'),transparent:true,blending:THREE.AdditiveBlending,depthWrite:false,color:0x22c55e}));glow.position.copy(led.position);glow.scale.set(.14,.14,1);chipG.add(glow);
+  // cánh tay + bàn tay bấm chip (chỉ hiện khi người lái bấm nút)
+  const pressArm=new THREE.Group();pressArm.visible=false;g.add(pressArm);
+  pressArm.add(limb([-.1,1.34,-.2],[.2,1.52,-.05],.05,M(o.shirt,{roughness:.9})));pressArm.add(limb([.2,1.52,-.05],[.45,1.33,.03],.045,M(o.shirt,{roughness:.9})));
+  const hand=new THREE.Mesh(new THREE.SphereGeometry(.065,12,10),M(0xd9a679));hand.position.set(.45,1.31,.03);pressArm.add(hand);
+  // người lái
+  const jk=M(o.shirt,{roughness:.9}),pt=M(o.pants,{roughness:.9}),hm0=M(o.helmet,{roughness:.3,metalness:.3});
+  [-1,1].forEach(q=>{g.add(limb([-.3,.82,q*.12],[.14,.78,q*.15],.075,pt));g.add(limb([.14,.78,q*.15],[.22,.36,q*.16],.06,pt));add(new THREE.BoxGeometry(.2,.07,.1),M(0x111111),.3,.3,q*.16);});
+  add(new THREE.CylinderGeometry(.17,.2,.58,12),jk,-.2,1.14,0,-.28);
+  if(o.pack)add(new THREE.BoxGeometry(.18,.36,.28),M(0x1d4ed8,{roughness:.8}),-.4,1.14,0,-.28);
+  if(o.vest){const v=add(new THREE.CylinderGeometry(.18,.21,.1,12),new THREE.MeshStandardMaterial({color:0xe6f0ff,emissive:0xaacbff,emissiveIntensity:.5}),-.2,1.14,0,-.28);}
+  [-1,1].forEach(q=>{g.add(limb([-.1,1.34,q*.2],[.18,1.24,q*.28],.05,jk));g.add(limb([.18,1.24,q*.28],[.44,1.1,q*.3],.045,jk));});
+  add(new THREE.CylinderGeometry(.06,.07,.1,8),M(0xd9a679),-.03,1.46,0);
+  const hl=add(new THREE.SphereGeometry(.16,18,14),hm0,-.02,1.58,0);hl.scale.set(1.15,1,.95);
+  add(new THREE.BoxGeometry(.09,.07,.2),M(0x06080c,{roughness:.15,metalness:.7}),.12,1.57,0);add(new THREE.BoxGeometry(.08,.07,.18),hm0,.11,1.47,0);
+  let spot=null;if(o.spot){spot=new THREE.SpotLight(0xfff1c2,1.7,26,.55,.6,1);spot.position.set(.65,1,0);const tg=new THREE.Object3D();tg.position.set(9,.2,0);g.add(tg);spot.target=tg;g.add(spot);}
+  const lb=labelSprite(o.name,o.lc,2.4);lb.position.set(0,2.5,0);g.add(lb);
+  scene.add(g);
+  return {g:g,pressArm:pressArm,wheels:wheels,btn:btn,led:led,glow:glow,chipG:chipG,cbody:cbody,cbm:cbm,decals:decals,lastS:0};
+}
+
+function init3D(){
+  if(typeof THREE==='undefined')return false;
+  try{
+    const box=$('scene3d'),renderer=new THREE.WebGLRenderer({antialias:true});
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));box.insertBefore(renderer.domElement,box.firstChild);
+    const scene=new THREE.Scene();scene.background=new THREE.Color(0x03050a);scene.fog=new THREE.Fog(0x03050a,22,150);
+    const cam=new THREE.PerspectiveCamera(55,16/7,.1,600);
+    scene.add(new THREE.HemisphereLight(0x6b7fa8,0x10141c,.85));const mo=new THREE.DirectionalLight(0xa9bff0,.5);mo.position.set(-30,50,20);scene.add(mo);
+    const wd=build3DWorld(scene);
+    const rider=makeBike(scene,{body:0x2563eb,shirt:0x15803d,pants:0x1e293b,helmet:0xf1f5f9,spot:true,pack:true,vest:true,name:'Bạn',lc:'#86efac'});
+    const thief=makeBike(scene,{body:0x374151,shirt:0x7f1d1d,pants:0x111827,helmet:0x111111,spot:false,name:'Đối tượng',lc:'#fca5a5'});thief.g.visible=false;
+    const rings=[0,1,2].map(()=>{const m=new THREE.Mesh(new THREE.RingGeometry(.55,.65,40),new THREE.MeshBasicMaterial({color:0x38bdf8,transparent:true,opacity:.8,side:THREE.DoubleSide}));m.rotation.x=-Math.PI/2;m.visible=false;scene.add(m);return m;});
+    const cs=ctex(128,128,(c,w,h)=>{c.font='90px sans-serif';c.textAlign='center';c.textBaseline='middle';c.fillText('💥',64,70);});
+    const crash=new THREE.Sprite(new THREE.SpriteMaterial({map:cs,transparent:true}));crash.scale.set(2.6,2.6,1);crash.visible=false;scene.add(crash);
+    R3={ready:true,renderer:renderer,scene:scene,cam:cam,rider:rider,thief:thief,rings:rings,crash:crash,tunnel:wd.tunnel,jam:wd.jam,mode:'chase',drag:{yaw:0,pitch:0},
+        des:new THREE.Vector3(),want:new THREE.Vector3(),look:new THREE.Vector3(),started:false,prevA:0,lean:0,prevTs:0,tw:0};
+    const cv=renderer.domElement;let down=false,lx=0,ly=0;
+    cv.addEventListener('pointerdown',e=>{down=true;lx=e.clientX;ly=e.clientY;try{cv.setPointerCapture(e.pointerId)}catch(_){}});
+    cv.addEventListener('pointermove',e=>{if(!down)return;R3.drag.yaw-=(e.clientX-lx)*.008;R3.drag.pitch+=(e.clientY-ly)*.006;lx=e.clientX;ly=e.clientY;});
+    cv.addEventListener('pointerup',()=>{down=false});cv.addEventListener('pointercancel',()=>{down=false});
+    cv.addEventListener('dblclick',()=>{R3.drag.yaw=0;R3.drag.pitch=0});
+    window.addEventListener('resize',resize3D);return true;
+  }catch(err){console.error('3D lỗi:',err);R3=null;return false;}
+}
+function resize3D(){if(!R3||!R3.ready)return;const b=$('scene3d'),w=b.clientWidth,h=b.clientHeight;if(!w||!h)return;R3.renderer.setSize(w,h,false);R3.cam.aspect=w/h;R3.cam.updateProjectionMatrix();}
+function setCam(m){if(R3){R3.mode=m;R3.drag.yaw=0;R3.drag.pitch=0;}document.querySelectorAll('[data-cam]').forEach(x=>x.classList.toggle('on',x.dataset.cam===m));}
+function setView(v){VIEW=(v==='3d'&&R3)?'3d':'2d';$('scene3d').style.display=VIEW==='3d'?'block':'none';$('scene2d').style.display=VIEW==='2d'?'block':'none';
+  $('camBar').style.display=VIEW==='3d'?'inline':'none';$('v3d').classList.toggle('on',VIEW==='3d');$('v2d').classList.toggle('on',VIEW==='2d');if(VIEW==='3d'){resize3D();R3.started=false;}}
+
+function poseBike(b,k,s,lat,dt,spd,fe,fdir,bump,lean){
+  const p=placeAt(k,s,lat),w=W3(p.x,p.y);
+  b.g.position.set(w.x,fe*.3+Math.sin(bump*Math.PI)*.3,w.z);
+  b.g.rotation.y=-p.h;b.g.rotation.x=fe>0?fdir*fe*(Math.PI/2-.12):lean;b.g.rotation.z=Math.sin(bump*16)*.13*bump;
+  const ds=spd*dt*K3;b.wheels.forEach(x=>{x.rotation.z-=ds/.33;});return p;
+}
+function update3D(dt){
+  if(!R3||VIEW!=='3d')return;
+  const r=R3,now=performance.now(),rb=r.rider,th=S.thief,fe=S.fall>0?1-Math.pow(1-S.fall,2):0;
+  const p0=placeAt(S.route,S.s,0);let da=p0.h-r.prevA;while(da>Math.PI)da-=2*Math.PI;while(da<-Math.PI)da+=2*Math.PI;r.prevA=p0.h;
+  r.lean=lerp(r.lean,clamp(da/Math.max(dt,.001)*.22*(S.speed/CRUISE),-.3,.3),.15);
+  poseBike(rb,S.route,S.s,0,dt,S.speed,fe,S.fallDir,S.bump,r.lean);
+  r.thief.g.visible=th.mode!=='off';
+  if(th.mode!=='off'){const sp=Math.abs(th.s-r.prevTs)/Math.max(dt,.001);r.prevTs=th.s;poseBike(r.thief,S.route,th.s,th.lat,dt,sp,0,1,0,th.lean||0);}
+  // chip, đèn, nút, decal
+  const mt=S.mount==null?1:S.mount,alive=S.chip.alive;rb.chipG.visible=mt>0;rb.chipG.position.y=1.2+(1-mt)*1.5;
+  rb.decals.forEach(d=>{d.visible=S.decals!==false;});
+  const blink=(now%600)<300,lc=S.chip.led;let col=LEDC[lc]||LEDC.off,vis=1;if((lc==='a'||lc==='b')&&!blink)vis=.15;
+  rb.led.material.color.setHex(alive?col:LEDC.off);rb.glow.material.color.setHex(alive?col:0x000000);rb.glow.material.opacity=alive&&lc!=='off'?vis:0;
+  rb.cbm.color.setHex(alive?0x20252e:0x3b1010);rb.cbody.rotation.set(0,0,alive?0:.5);rb.btn.visible=alive;rb.btn.position.y=S.hold?.026:.036;rb.btn.material.emissiveIntensity=S.hold?.2:.9;
+  {const pr=!!S.hold||(now-(S.tapAt||0)<700);rb.pressArm.visible=pr&&mt>0&&alive;rb.pressArm.position.y=S.hold?-.03:0;}
+  r.tunnel.visible=!!S.tunnelOn;r.jam.visible=!!S.jam;
+  // vòng dữ liệu SOS & tia 💥
+  const bp=rb.g.position;
+  r.rings.forEach((m,i)=>{if(!S.sos){m.visible=false;return;}const k=(((now-(S.sos.rt||(S.sos.rt=now)))/2200)+i/3)%1;m.visible=true;m.position.set(bp.x,1.6+k*4,bp.z);const sc=1+k*2.4;m.scale.set(sc,sc,sc);m.material.opacity=(1-k)*.85;});
+  r.crash.visible=S.crash>0;if(S.crash>0){r.crash.position.set(bp.x,1.4,bp.z);const sc=1.6+(1.2-S.crash)*1.6;r.crash.scale.set(sc,sc,1);r.crash.material.opacity=clamp(S.crash,0,1);}
+  // camera
+  const pr=CAMS[r.mode]||CAMS.chase,th2=rb.g.rotation.y;let tx,tz,ty=pr.ty;
+  if(r.mode==='map'){tx=0;tz=0;}else{tx=bp.x+Math.cos(-th2)*pr.fwd;tz=bp.z+Math.sin(-th2)*pr.fwd;}
+  const yaw=pr.yaw+r.drag.yaw,pitch=clamp(pr.pitch+r.drag.pitch,.05,1.5),cp=Math.cos(pitch),base=r.mode==='map'?0:-th2,g2=base+yaw;
+  r.want.set(tx,ty,tz);r.des.set(tx-Math.cos(g2)*cp*pr.dist,ty+Math.sin(pitch)*pr.dist,tz-Math.sin(g2)*cp*pr.dist);
+  r.scene.fog.near=r.mode==='map'?260:22;r.scene.fog.far=r.mode==='map'?700:150;
+  if(!r.started){r.cam.position.copy(r.des);r.look.copy(r.want);r.started=true;}else{r.cam.position.lerp(r.des,.16);r.look.lerp(r.want,.25);}
+  r.cam.lookAt(r.look);r.renderer.render(r.scene,r.cam);
+}
+
+/* ===== 18. TÊN NGƯỜI DÙNG, GÓI TIN, MẤT KẾT NỐI ===== */
+const P={name:'Mai',phone:'0901 234 567',rname:'Mẹ Lan',rphone:'0912 345 678'};
+function nm(s){const a=(P.name||'').trim()||'Mai',b=(P.rname||'').trim()||'Mẹ Lan';if(a==='Mai'&&b==='Mẹ Lan')return s;
+  return s.split('Mẹ Lan').join('\u0002').split('Mai').join('\u0001').split('\u0001').join(a).split('\u0002').join(b);}
+function applyNames(){setT('uWho','('+nm('Mai')+')');setT('rWho','('+nm('Mẹ Lan')+', được cấp quyền)');const t=$('t_rider');if(t)t.textContent=nm('Bạn (Mai)');}
+const TUN0=RT.A.len*.38, TUN1=RT.A.len*.52;
+function doBeat(){
+  const c=S.cloud,chipOK=S.chip.on&&S.chip.alive&&S.net,phoneOK=S.phone.alive&&S.net,b={t:S.clock,s:S.s,route:S.route,speed:S.speed,vib:Math.max(S.peak,(S.lastImpact&&performance.now()-S.lastImpact.t<5000)?S.lastImpact.v:0)};S.peak=0;
+  if(chipOK||phoneOK){
+    if(c.lost||c.buf.length){const n=c.buf.length;c.buf.forEach(x=>c.hist.unshift(x));c.buf=[];
+      if(c.lost){c.lost=false;c.longDone=false;log('Có sóng lại: nhận bù '+n+' gói dữ liệu chip đã lưu cục bộ. Hệ thống xác nhận chỉ là tạm mất sóng.','g');addFeed('ok','Đã kết nối lại','Nhận bù '+n+' gói dữ liệu · không có va đập, không có SOS');}}
+    c.last=b;c.hist.unshift(b);c.hist.length=Math.min(c.hist.length,8);if(S.tab==='store'&&S.rs==='live')renderR();
+  }else if(S.chip.alive||S.phone.alive){c.buf.push(b);}
+}
+function watchdog(){
+  const c=S.cloud,l=c.last;if(!S.trip||S.arrived||!l)return;const loss=S.clock-l.t;
+  if(loss>=60&&!c.lost&&!c.handled){c.lost=true;c.handled=true;handleLoss();}
+  if(c.lost&&loss>=600&&!c.longDone&&!S.sos){c.longDone=true;addSms('soft','[WAOsafe] Mất liên lạc với Mai đã hơn 10 phút (không phát hiện va đập). Bạn nên gọi hỏi thăm.');addFeed('warn','Mất liên lạc kéo dài','Cảnh báo mức thấp: hãy gọi hỏi thăm');}
+  if(!c.lost&&loss<30)c.handled=false;
+}
+function handleLoss(){
+  const l=S.cloud.last;log('Máy chủ: không nhận gói tin '+Math.round(S.clock-l.t)+' giây, thiết bị không tắt máy chuẩn. Kiểm tra rung chấn cuối: '+l.vib.toFixed(1)+' g.','y');
+  if(l.vib>=THR){log('Rung chấn cuối VƯỢT ngưỡng + mất kết nối → nghi chip bị đập vỡ hoặc tai nạn nặng → kích hoạt Fail-Safe.','r');sendSOS('failsafe');}
+  else{log('Rung chấn cuối êm ('+l.vib.toFixed(1)+' g < '+THR.toFixed(1)+' g), không có va đập → xem là TẠM MẤT SÓNG, KHÔNG báo SOS.','g');
+    addFeed('warn','Mai tạm mất tín hiệu','Rung cuối '+l.vib.toFixed(1)+' g (êm) → không phải va đập, chưa báo SOS');}
+  renderR();
+}
+function storeHtml(){
+  const c=S.cloud,l=c.last;let h='<div class="a-h">Bộ lưu trữ dữ liệu</div>';
+  if(!l)return h+'<p class="a-s">Chưa có dữ liệu. Khi chuyến đi bắt đầu, Cloud sẽ lưu vị trí, thời gian và độ rung chấn mỗi giây.</p>';
+  const lost=c.lost||(S.sos&&S.sos.kind==='failsafe'),hi=l.vib>=THR;
+  h+='<p><span class="pill '+(lost?'bad':'ok')+'">'+(lost?'Đã mất kết nối':'Đang kết nối (dữ liệu mới nhất)')+'</span></p>'+mmap('rLast',true)+
+    '<div class="fi '+(lost?'bad':'')+'"><b>Vị trí '+(lost?'trước khi mất kết nối':'cuối cùng nhận được')+'</b><small id="stPos">'+gps(pos(l.route,l.s))+'</small></div>'+
+    '<div class="fi"><b>Thời gian '+(lost?'trước khi mất kết nối':'gói tin cuối')+'</b><small>'+hms(l.t)+'</small></div>'+
+    '<div class="fi '+(hi?'bad':'ok')+'"><b>Độ rung chấn cuối cùng'+(lost?' trước khi mất kết nối':'')+'</b><small>'+l.vib.toFixed(1)+' g · '+(hi?'VƯỢT ngưỡng '+THR.toFixed(1)+' g → nghi va đập':'dưới ngưỡng '+THR.toFixed(1)+' g → êm, không va đập')+'</small></div>';
+  if(lost)h+='<div class="fi '+(hi?'bad':'warn')+'"><b>Quyết định của hệ thống</b><small>'+(hi?'Mất kết nối sau va đập mạnh → gửi SOS Fail-Safe kèm dữ liệu cuối.':'Mất kết nối khi xe êm → coi là tạm mất sóng, chưa báo SOS. Chip lưu dữ liệu và gửi bù khi có sóng.')+'</small></div>';
+  h+='<div class="a-s" style="margin-top:8px">Các gói tin gần nhất</div>'+c.hist.slice(0,5).map(x=>'<div class="row"><span>'+hms(x.t)+'<small>'+Math.round(x.speed*1.6)+' km/h</small></span><span>'+x.vib.toFixed(1)+' g</span></div>').join('');
+  return h;
+}
+
+/* ===== 19. TH4a, TH4b ===== */
+async function th4a(){
+  setSteps(['Khởi hành','Bị áp sát','Đối tượng giật điện thoại, quật ngã, đập chip','Mất kết nối đột ngột','Fail-Safe gửi SMS kèm dữ liệu cuối']);step(0);
+  await boot('B');step(1);banner('Tuyến B vắng, ít đèn...');
+  await until(()=>S.s>ATT-110);S.thief={mode:'follow',s:S.s-70,lat:0};setCam('act');banner('⚠ Một xe lạ bám đuôi.','warn');
+  await until(()=>S.s-S.thief.s<=27);await sleep(600);step(2,true);
+  banner('Đối tượng giật điện thoại của nạn nhân, quật ngã xe rồi đập vỡ chip!','bad');S.phone.alive=false;S.phone.cracked=true;S.thief.mode='attack';
+  log('Điện thoại bị giật mất: app không còn hỏi “Bạn ổn chứ?” được.','r');
+  await until(()=>S.fall>0);await sleep(700);S.chip.alive=false;ledSet('off');S.hold=null;
+  log('Chip bị đập vỡ: mất toàn bộ tín hiệu. Gói tin cuối nhận được có rung chấn '+S.cloud.last.vib.toFixed(1)+' g.','r');step(3,true);
+  banner('Chip và điện thoại cùng im lặng. Máy chủ đang đếm thời gian mất tín hiệu...','bad');
+  await until(()=>!!S.sos);step(4,true);await sleep(2600);S.tab='store';S.smsNew=0;closeSos();
+  banner('✔ TH4a hoàn tất: dù thiết bị hỏng, máy chủ vẫn báo SOS kèm vị trí, giờ và độ rung cuối (xem tab “Lưu trữ” của người thân).','ok');
+}
+async function th4b(){
+  setSteps(['Khởi hành','Vào hầm chui (mất sóng)','Xe vẫn êm, không va đập','Máy chủ: tạm mất sóng, KHÔNG báo SOS','Ra khỏi hầm, nhận bù dữ liệu']);step(0);S.tunnelOn=true;
+  await boot('A');step(1);banner('Tuyến A. Phía trước có hầm chui, trong hầm không có sóng 4G.');
+  await until(()=>!S.net);step(2);banner('Vào hầm: chip và điện thoại không gửi được dữ liệu. Chip lưu nhật ký cục bộ. Xe chạy êm, rung rất thấp.','warn');
+  await until(()=>S.cloud.lost);step(3);S.tab='store';S.smsNew=0;renderR();
+  banner('Mất tín hiệu hơn 60 giây nhưng rung chấn cuối êm → hệ thống chỉ xem là tạm mất sóng, KHÔNG gửi SOS. (Xem tab “Lưu trữ”)','ok');
+  await until(()=>S.net&&!S.cloud.lost,40000);step(4);S.tab='live';renderR();banner('Ra khỏi hầm: có sóng lại, chip gửi bù dữ liệu đã lưu. Không có SOS nào bị gửi nhầm.','ok');
+  await until(()=>S.arrived);await userAct('confirm',2600,()=>doAct('confirm'));banner('✔ TH4b hoàn tất: mất sóng thường ngày không gây báo động giả.','ok');
+}
+function closeSos(){$('rSos').classList.remove('show');renderR();}
+
+/* ===== 20. ĐĂNG KÝ / ĐĂNG NHẬP / GHÉP NỐI (CẢ HAI APP) ===== */
+function qrSvg(sz,seed){let q=seed||5,r=()=>{q=(q*16807)%2147483647;return q/2147483647;},c='',n=13;
+  for(let y=0;y<n;y++)for(let x=0;x<n;x++){const f=(x<4&&y<4)||(x>8&&y<4)||(x<4&&y>8);if(!f&&r()<.5)c+='<rect x="'+x+'" y="'+y+'" width="1" height="1"/>';}
+  [[0,0],[9,0],[0,9]].forEach(p=>{c+='<rect x="'+p[0]+'" y="'+p[1]+'" width="4" height="4"/><rect x="'+(p[0]+1)+'" y="'+(p[1]+1)+'" width="2" height="2" fill="#fff"/><rect x="'+(p[0]+1.4)+'" y="'+(p[1]+1.4)+'" width="1.2" height="1.2"/>';});
+  return '<svg width="'+sz+'" height="'+sz+'" viewBox="-1 -1 15 15"><rect x="-1" y="-1" width="15" height="15" fill="#fff"/><g fill="#0b1220">'+c+'</g></svg>';}
+const sw=(act,v,on)=>'<button class="sw'+(on?' on':'')+'" data-act="'+act+'" data-v="'+v+'"></button>';
+const tabs2=(act,cur)=>'<div style="display:flex;gap:6px;margin:6px 0 10px">'+[['reg','Đăng ký'],['login','Đăng nhập']].map(t=>'<button class="b sm'+(cur===t[0]?' on':'')+'" style="flex:1" data-act="'+act+'" data-v="'+t[0]+'">'+t[1]+'</button>').join('')+'</div>';
+const fld=(lab,key,val,type)=>'<div class="fld"><label>'+lab+'</label><input type="'+(type||'text')+'" data-p="'+key+'" value="'+val+'"></div>';
+const lockHtml=(msg)=>'<div style="text-align:center;margin-top:60px"><div style="font-size:46px;font-weight:300">'+hm(S.clock)+'</div><p class="a-s">Thứ Tư, 26 tháng 11</p><p class="a-s" style="margin-top:40px">'+msg+'</p></div>';
+
+const uScreens={
+  idle:()=>lockHtml('Chưa cài ứng dụng '+'WAOsafe'),
+  store:()=>'<div class="a-h">Cửa hàng ứng dụng</div><p class="a-s">Bạn vừa quét mã QR trên hộp sản phẩm.</p>'+
+    '<div style="display:flex;gap:12px;align-items:center;margin:10px 0"><div style="width:58px;height:58px;border-radius:14px;background:linear-gradient(135deg,#0ea5e9,#16a34a);display:flex;align-items:center;justify-content:center;font-size:28px">🛡</div><div><b>WAOsafe</b><small style="display:block;color:var(--mut)">An toàn khi đi xe máy ban đêm</small><small style="color:var(--warn)">★★★★★ 4,8 (giả lập)</small></div></div>'+
+    (S.dlRun||S.dl>=1?'<div class="pbar"><i id="dlBar" style="width:'+Math.round(S.dl*100)+'%"></i></div><p class="a-s" id="dlTxt">Đang tải và cài đặt...</p>':'<button class="btnA" data-act="dl">Tải về</button>'),
+  welcome:()=>'<div style="text-align:center;font-size:34px;margin-top:4px">🛡</div><div class="a-h" style="text-align:center">WAOsafe</div>'+tabs2('authtab',S.authTab)+
+    (S.authTab==='reg'?fld('Họ và tên','name',P.name)+fld('Số điện thoại','phone',P.phone)+'<button class="btnA" data-act="reg">Tạo tài khoản</button><p class="a-s">Mã xác thực (OTP) sẽ gửi qua SMS.</p>'
+     :fld('Số điện thoại','phone',P.phone)+fld('Mật khẩu hoặc OTP','pw','••••••','password')+'<button class="btnA" data-act="reg">Đăng nhập</button>'),
+  otp:()=>'<div class="a-h">Xác thực số điện thoại</div><p class="a-s">Nhập mã 6 số vừa gửi tới '+P.phone+'.</p><div style="display:flex;gap:6px;justify-content:center;margin:14px 0">'+'482913'.split('').map(d=>'<div style="width:36px;height:46px;border:1px solid #2b3a52;border-radius:9px;background:#0e1624;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700">'+d+'</div>').join('')+'</div><button class="btnA" data-act="otp">Xác nhận</button>',
+  perm:()=>'<div class="a-h">Cấp quyền cho ứng dụng</div><p class="a-s">Cần để theo dõi hành trình và gửi cảnh báo.</p>'+
+    '<div class="row"><span>Vị trí (GPS)<small>xác định vị trí xe và vùng an toàn</small></span>'+sw('ptog','loc',S.perm.loc)+'</div><div class="row"><span>Thông báo<small>báo quá giờ, hỏi “Bạn ổn chứ?”</small></span>'+sw('ptog','notif',S.perm.notif)+'</div><div class="row"><span>Bluetooth<small>ghép nối với chip trên xe</small></span>'+sw('ptog','ble',S.perm.ble)+'</div><button class="btnA" data-act="permu">Tiếp tục</button>',
+  pair:()=>{const st=S.pairStep;return '<div class="a-h">Ghép nối chip</div><p class="a-s">Quét mã QR in trên chip để kết nối Bluetooth.</p><div style="text-align:center;margin:8px 0">'+
+    (st==='scan'?'<div style="display:inline-block;padding:10px;border:2px dashed var(--acc);border-radius:14px">'+qrSvg(110,11)+'</div><p class="a-s">Đưa camera vào mã QR trên chip</p><button class="btnA" data-act="scan">Quét mã QR trên chip</button>'
+     :st==='ble'?'<div style="font-size:38px">📡</div><p class="a-s">Đang kết nối Bluetooth và đồng bộ lên Cloud... (đèn chip nháy xanh dương)</p><div class="pbar"><i style="width:70%"></i></div>'
+     :'<div style="font-size:40px">✅</div><div class="alertbox grn"><p><b>Đã ghép nối chip</b></p><p>Bluetooth ✔ · Đã đồng bộ Cloud ✔</p><p>Đèn chip chuyển sang xanh.</p></div><button class="btnA g" data-act="pairok">Tiếp tục</button>')+'</div>';},
+  contacts:()=>'<div class="a-h">Người đồng hành</div><p class="a-s">Người này sẽ nhận SMS khẩn cấp và xem được hành trình của bạn.</p>'+fld('Tên người thân','rname',P.rname)+fld('Số điện thoại người thân','rphone',P.rphone)+
+    '<div class="row"><span>Chia sẻ vị trí của tôi<small>cho người này xem khi đang đi</small></span>'+sw('shareloc','x',S.shareLoc)+'</div><button class="btnA" data-act="contacts">Gửi lời mời qua SMS</button>',
+  zones:()=>'<div class="a-h">Vùng an toàn</div><p class="a-s">Khi xe vào vùng này và dừng hẳn, chuyến đi tự kết thúc.</p>'+mmap(null,false)+
+    Object.keys(ZONES).map(z=>'<div class="row"><span>'+ZONES[z].n+'</span><button class="b sm'+(S.zones[z]?' on':'')+'" data-act="zone" data-v="'+z+'">'+(S.zones[z]?'✔ Đã lưu':'Lưu vị trí này')+'</button></div>').join('')+'<button class="btnA" data-act="zones">Tiếp tục</button>',
+  test:()=>'<div class="a-h">Thử nút SOS</div><p class="a-s">Kiểm tra kết nối chip, app, Cloud và SMS.</p>'+
+    (S.testDone?'<div class="alertbox grn"><h3>Thử nghiệm thành công</h3><p>'+nm('Mẹ Lan')+' đã nhận SMS “[THỬ NGHIỆM]”.</p></div><button class="btnA g" data-act="finish">Hoàn tất cài đặt</button>'
+     :'<div class="alertbox amb"><p><b>Nhấn giữ nút trên chip đủ 3 giây</b></p><p>Tin nhắn thử sẽ gửi cho người thân.</p></div><p class="a-s" style="text-align:center">Chưa thử</p>')
+};
+const rScreens={
+  idle:()=>lockHtml('Chưa có thông báo mới'),
+  invite:()=>'<div class="a-h">Tin nhắn mới</div><div class="sms">Mai mời bạn làm <b>người đồng hành an toàn</b> trên WAOsafe. Mở liên kết để đồng ý: saferide.vn/i/K29F<small>vừa xong · số lạ: '+P.phone+'</small></div><button class="btnA v" data-act="rinvite">Mở liên kết và cài ứng dụng</button>',
+  rreg:()=>'<div style="text-align:center;font-size:34px">🛡</div><div class="a-h" style="text-align:center">WAOsafe · Người đồng hành</div>'+tabs2('rauthtab',S.rAuth)+
+    (S.rAuth==='reg'?fld('Tên của bạn','rname',P.rname)+fld('Số điện thoại','rphone',P.rphone):fld('Số điện thoại','rphone',P.rphone)+fld('Mật khẩu hoặc OTP','pw','••••••','password'))+
+    (S.rcode?'<div class="alertbox grn"><p>Mã xác thực: <b>715 204</b> (giả lập)</p></div><button class="btnA v" data-act="rregok">'+(S.rAuth==='reg'?'Đăng ký':'Đăng nhập')+'</button>':'<button class="btnA o" data-act="rgetcode">Lấy mã xác thực qua SMS</button>'),
+  rperm:()=>'<div class="a-h">Cấp quyền người đồng hành</div><p class="a-s">Để nhận cảnh báo kịp thời khi '+nm('Mai')+' gặp nguy hiểm.</p>'+
+    '<div class="row"><span>Nhận SMS khẩn cấp<small>khi có SOS hoặc sự cố</small></span>'+sw('rptog','sms',S.rperm.sms)+'</div><div class="row"><span>Chuông lớn, bỏ qua chế độ im lặng<small>chỉ dùng cho SOS</small></span>'+sw('rptog','loud',S.rperm.loud)+'</div><div class="row"><span>Vị trí của tôi<small>để tính đường đến và trạm cứu hộ gần nhất</small></span>'+sw('rptog','loc',S.rperm.loc)+'</div><button class="btnA v" data-act="rpermok">Chấp nhận làm người đồng hành</button>'
+};
+function uToast(t){const e=$('uToast');if(!e)return;e.innerHTML='<b>✉ WAOsafe</b>'+t;e.style.display='block';clearTimeout(e._h);e._h=setTimeout(()=>{e.style.display='none';},3500);}
+function rToast(t){const x=$('rToast');x.innerHTML='<b>✉ Tin nhắn</b>'+nm(t);x.style.display='block';clearTimeout(x._h);x._h=setTimeout(()=>{x.style.display='none';},3500);}
+function testSOS(){S.testDone=true;chipBuzz();log('Thử nút SOS 3 giây: chip → Cloud → SMS thử nghiệm tới '+nm('Mẹ Lan')+' thành công.','g');
+  S.sms.push({kind:'test',text:'[WAOsafe] [THỬ NGHIỆM] Mai vừa thử nút SOS 3 giây. Chip, app, Cloud và SMS hoạt động tốt.',at:S.clock});S.smsNew++;rToast('[THỬ NGHIỆM] Mai vừa thử nút SOS 3 giây.');renderR();renderU();}
+function authAct(a,el){
+  const v=el&&el.dataset?el.dataset.v:null;
+  if(a==='dl'){if(!S.dlRun&&S.dl<1){S.dlRun=true;S.dl=0;renderU();}return true;}
+  if(a==='authtab'){S.authTab=v;renderU();return true;}
+  if(a==='reg'){setU('otp');uToast('Mã xác thực của bạn là 482913 (giả lập)');perform('reg');return true;}
+  if(a==='otp'){setU('perm');perform('otp');return true;}
+  if(a==='ptog'){S.perm[v]=!S.perm[v];renderU();return true;}
+  if(a==='permu'){setU('pair');perform('permu');return true;}
+  if(a==='scan'){if(S.pairStep!=='scan')return true;S.pairStep='ble';S.chip.on=true;ledSet('b');log('Quét QR chip → ghép Bluetooth...');renderU();
+    run(async()=>{await sleep(1700);S.pairStep='done';ledSet('g');log('Ghép nối thành công, chip đồng bộ lên Cloud.','g');renderU();perform('scan');});return true;}
+  if(a==='pairok'){if(S.pairStep==='done'){setU('contacts');perform('pairok');}return true;}
+  if(a==='shareloc'){S.shareLoc=!S.shareLoc;renderU();return true;}
+  if(a==='contacts'){S.rs='invite';renderR();rToast('Mai mời bạn làm người đồng hành an toàn trên WAOsafe...');log('Đã gửi SMS mời '+nm('Mẹ Lan')+' ('+P.rphone+').');setU('zones');perform('contacts');return true;}
+  if(a==='zone'){S.zones[v]=!S.zones[v];renderU();return true;}
+  if(a==='zones'){setU('test');perform('zones');return true;}
+  if(a==='finish'){setU('home');perform('finish');return true;}
+  if(a==='rinvite'){S.rs='rreg';renderR();perform('rinvite');return true;}
+  if(a==='rauthtab'){S.rAuth=v;renderR();return true;}
+  if(a==='rgetcode'){S.rcode=true;renderR();perform('rgetcode');return true;}
+  if(a==='rregok'){S.rs='rperm';renderR();perform('rregok');return true;}
+  if(a==='rptog'){S.rperm[v]=!S.rperm[v];renderR();return true;}
+  if(a==='rpermok'){S.rs='live';S.tab='live';addFeed('ok','Đã kết nối với '+nm('Mai'),'Bạn sẽ nhận SMS và chuông lớn khi có SOS');log(nm('Mẹ Lan')+' đã chấp nhận làm người đồng hành.','g');renderR();perform('rpermok');return true;}
+  return false;
+}
+function bindAuth(){
+  const t=document.createElement('div');t.className='toastR';t.id='uToast';$('uphone').appendChild(t);
+  $('rScreen').addEventListener('click',e=>{const x=e.target.closest('[data-act]');if(x)doAct(x.dataset.act,x);});
+  [$('uScreen'),$('rScreen')].forEach(c=>c.addEventListener('input',e=>{const k=e.target.dataset&&e.target.dataset.p;if(k&&k in P){P[k]=e.target.value;applyNames();}}));
+}
+function boxSvg(){return '<svg viewBox="0 0 600 320"><defs><linearGradient id="bx" x1="0" x2="1"><stop offset="0" stop-color="#1e3a5f"/><stop offset="1" stop-color="#0f2744"/></linearGradient></defs>'+
+  '<rect x="30" y="40" width="540" height="250" rx="12" fill="url(#bx)" stroke="#38bdf8" stroke-width="2"/><rect x="30" y="40" width="540" height="46" rx="12" fill="#0b3a6b"/><text x="300" y="71" fill="#e6f4ff" font-size="22" font-weight="700" text-anchor="middle">WAOsafe · Bộ an toàn xe máy ban đêm</text>'+
+  [0,1,2,3].map(i=>'<g transform="translate('+(60+i*60)+',110)"><rect width="46" height="100" rx="5" fill="#dbeafe" stroke="#94a3b8"/><path d="M0 30 L46 10 M0 60 L46 40 M0 90 L46 70" stroke="#94a3b8" stroke-width="6"/></g>').join('')+
+  '<text x="145" y="232" fill="#cbd5e1" font-size="14" text-anchor="middle">4 decal phản quang</text>'+
+  '<g transform="translate(330,120)"><rect width="110" height="70" rx="10" fill="#20252e" stroke="#475569"/><circle cx="62" cy="34" r="18" fill="#ef4444"/><text x="62" y="39" fill="#fff" font-size="13" font-weight="700" text-anchor="middle">SOS</text><circle cx="18" cy="14" r="5" fill="#22c55e"/></g>'+
+  '<text x="385" y="232" fill="#cbd5e1" font-size="14" text-anchor="middle">1 chip có nút bấm</text>'+
+  '<g transform="translate(470,112)"><rect width="84" height="104" rx="6" fill="#fff"/><g transform="translate(8,8)">'+qrSvg(68,7)+'</g><text x="42" y="92" fill="#0b1220" font-size="11" text-anchor="middle">Quét để tải app</text></g></svg>';}
+
+/* ===== 21. HÀNH TRÌNH TỪ ĐẦU ===== */
+let curStep=-1, autoNext=true;
+function showStage(html,cap,btns){const s=$('stage');s.style.display='flex';s.innerHTML=html+'<div class="cap">'+cap+'</div>'+(btns||'');}
+function hideStage(){const s=$('stage');s.style.display='none';s.innerHTML='';}
+const PHASES=['GĐ1 · Tạo & kết nối','GĐ2 · Thiết lập lộ trình','GĐ3 · Giám sát hành trình','GĐ4 · Phát hiện & báo động','GĐ5 · Kết thúc'];
+function phase4Svg(){const bx=(x,c,t1,t2,t3)=>'<g transform="translate('+x+',10)"><rect width="176" height="190" rx="12" fill="#0e1624" stroke="'+c+'" stroke-width="2"/><text x="88" y="30" fill="'+c+'" font-size="15" font-weight="700" text-anchor="middle">'+t1+'</text>'+
+  [t2,t3].map((t,i)=>'<text x="88" y="'+(66+i*0)+'" fill="#cbd5e1" font-size="12" text-anchor="middle"></text>').join('')+'</g>';
+  const col=(x,c,h,lines)=>'<g transform="translate('+x+',8)"><rect width="176" height="196" rx="12" fill="#0e1624" stroke="'+c+'" stroke-width="2"/><text x="88" y="28" fill="'+c+'" font-size="15" font-weight="700" text-anchor="middle">'+h+'</text>'+lines.map((t,i)=>'<text x="10" y="'+(56+i*22)+'" fill="#d5deec" font-size="12.5">'+t+'</text>').join('')+'</g>';
+  return '<svg viewBox="0 0 580 214">'+col(0,'#38bdf8','① Chủ động',['Gặp nguy hiểm (bị áp sát):','nhấn giữ nút chip 3 giây.','SOS im lặng: không còi,','không chớp đèn,','chỉ rung nhẹ xác nhận.'])+
+    col(202,'#fbbf24','② Bị động',['Ngã xe, va chạm mạnh','hoặc dừng quá lâu nơi vắng:','app rung mạnh hỏi','“Bạn ổn chứ?” trong 30 giây.','Không bấm → tự gửi SOS.'])+
+    col(404,'#ef4444','③ Khi có SOS',['Người thân: chuông lớn','(bỏ qua chế độ im lặng),','GPS trực tiếp, tình trạng,','trạm cứu hộ gần nhất,','ghi âm hiện trường lên Cloud.'])+'</svg>';}
+function setupState(i){
+  S.mount=i>=2?1:0;S.decals=i>=2;
+  if(i>=4){S.chip.on=true;S.pairStep='done';ledSet('g');}
+  if(i>=5){S.zones={home:true,work:true,school:true};S.rs='invite';}
+  if(i>=6){S.rs='live';}
+  if(i>=7){S.testDone=true;S.u='home';}
+  if(i>=1&&i<7&&S.u==='idle')S.u='store';
+}
+async function j1(){setCam('side');S.u='idle';renderU();banner('Bộ sản phẩm có 4 decal phản quang, 1 chip có nút bấm và mã QR để tải app.');
+  showStage(boxSvg(),'Bộ sản phẩm: 4 decal phản quang · 1 chip có nút bấm (đèn LED, SOS) · mã QR trên hộp để tải app.','<button class="b pri" data-act="stage">Tiếp tục ▶</button>');
+  await userAct('stage',6500);hideStage();}
+async function j2(){hideStage();setCam('chip');banner('Gắn chip lên đầu xe (hoặc mũ bảo hiểm) và dán 4 decal phản quang.');
+  for(let i=1;i<=16;i++){S.mount=i/16;await sleep(70);}S.decals=true;log('Đã gắn chip lên đầu xe và dán 4 decal phản quang.','g');await sleep(1300);
+  setCam('chase');setU('store');banner('Quét mã QR trên hộp để mở trang tải app, bấm “Tải về”.');await userAct('dl',2400);await sleep(600);}
+async function j3(){setCam('chase');setU('welcome');banner('Người dùng đăng ký: nhập họ tên, số điện thoại, xác thực mã OTP, cấp quyền vị trí / thông báo / Bluetooth.');
+  await userAct('reg',3000);await userAct('otp',2600);await userAct('permu',2600);}
+async function j4(){setU('pair');banner('Quét mã QR trên chip để kết nối Bluetooth và đồng bộ lên Cloud. Đèn chip nháy xanh dương rồi chuyển xanh lá.');
+  setCam('chip');await userAct('scan',2600);await sleep(500);await userAct('pairok',2000);setCam('chase');}
+async function j5(){setU('contacts');banner('Thêm người thân: tên, số điện thoại, bật chia sẻ vị trí của bạn. Sau đó lưu các vùng an toàn: Nhà, Trường, Chỗ làm.');
+  await userAct('contacts',3200);banner('Lưu các vùng an toàn. Khi xe vào vùng này và dừng hẳn, chuyến đi sẽ tự kết thúc.');
+  await userAct('zones',3200,()=>{S.zones={home:true,work:true,school:true};renderU();run(async()=>{await sleep(1200);doAct('zones');});});}
+async function j6(){S.rs='invite';renderR();banner('Điện thoại người thân (bên phải): nhận SMS mời, mở liên kết, đăng ký / đăng nhập, cấp quyền nhận cảnh báo.');
+  await userAct('rinvite',3000);await userAct('rgetcode',2400);await userAct('rregok',2400);await userAct('rpermok',2800);}
+async function j7(){setU('test');banner('Bấm thử nút SOS 3 giây trên chip để kiểm tra kết nối. Người thân sẽ nhận SMS “[THỬ NGHIỆM]”.');setCam('chip');
+  await userAct('hold',2600,()=>startHold(true));S.tab='sms';S.smsNew=0;renderR();await sleep(1800);S.tab='live';renderR();setCam('chase');await userAct('finish',2200);}
+async function j8(){await boot('A');banner('Chip nhận giờ đến dự kiến từ app và bắt đầu đếm ngược; chip tự bật giám sát và báo nhẹ cho người thân “Đã bắt đầu di chuyển”.','ok');}
+async function j9(){banner('Giám sát: chip và điện thoại gửi GPS, vận tốc, độ rung chấn lên Cloud mỗi giây; người thân xem trực tiếp, không cần gọi điện.');
+  await until(()=>S.s>RT.A.len*.42);paused=true;
+  showStage(phase4Svg(),'Giai đoạn 4 (chỉ xảy ra khi có sự cố): cách hệ thống phát hiện và báo động.','<div class="jbtns" style="margin-top:8px"><button class="b pri" data-act="stagego">Tiếp tục hành trình ▶</button><button class="b" data-act="stagetry">Thử gây sự cố ngay (TH3a)</button></div>');
+  const g=GEN,r=await new Promise(res=>{stageRes=res;if(autoOn())setTimeout(()=>{if(g===GEN&&stageRes===res){stageRes=null;res('go');}},7500);});
+  paused=false;hideStage();if(r==='try'){setMode('case');runCase('th3a');return;}
+  await until(()=>S.s>RT.A.len-95);}
+async function j10(){banner('Sắp tới nhà: GPS khớp vùng an toàn, xe dừng hẳn.');await until(()=>S.arrived);
+  await userAct('confirm',2600,()=>doAct('confirm'));banner('✔ Hoàn tất hành trình: về an toàn, hệ thống tự kết thúc chuyến và báo cho người thân.','ok');}
+const J=[
+ {t:'Mở hộp',ph:0,d:'Bộ sản phẩm gồm 4 decal phản quang, 1 chip có nút bấm và mã QR để tải app.',fn:j1},
+ {t:'Gắn chip & tải app',ph:0,d:'Gắn chip lên đầu xe (hoặc mũ bảo hiểm), dán decal, quét mã QR trên hộp để tải app.',fn:j2},
+ {t:'Đăng ký tài khoản',ph:0,d:'Người dùng nhập thông tin cá nhân (tên, số điện thoại), xác thực OTP, cấp quyền vị trí / thông báo / Bluetooth.',fn:j3},
+ {t:'Ghép nối chip',ph:0,d:'Quét mã QR trên chip để kết nối Bluetooth với điện thoại và đồng bộ lên Cloud.',fn:j4},
+ {t:'Người thân & vùng an toàn',ph:0,d:'Thêm người thân (tên, SĐT, chia sẻ vị trí của bản thân) và lưu các vùng an toàn: Nhà, Trường, Chỗ làm.',fn:j5},
+ {t:'Người thân đăng ký',ph:0,d:'Người thân nhận SMS mời, cài app, đăng ký hoặc đăng nhập và cấp quyền nhận cảnh báo.',fn:j6},
+ {t:'Thử nút SOS 3 giây',ph:0,d:'Bấm thử nút SOS 3 giây để kiểm tra kết nối chip, app, Cloud, SMS. Người thân nhận SMS thử nghiệm.',fn:j7},
+ {t:'Chọn điểm đến & tuyến',ph:1,d:'Chọn điểm đến, bật cho phép người thân xem dữ liệu, app đề xuất đường sáng đèn đông dân cư và tính giờ đến. Khi xe chạy, chip tự bật giám sát.',fn:j8},
+ {t:'Giám sát hành trình',ph:2,d:'Chip và điện thoại liên tục gửi GPS, vận tốc, rung chấn lên Cloud; người thân theo dõi trực tiếp. Giữa chuyến có thẻ giải thích Giai đoạn 4 (báo động).',fn:j9},
+ {t:'Về đến nhà',ph:4,d:'Xe vào vùng an toàn và dừng hẳn: tự kết thúc chuyến đi và báo “Đã về an toàn”.',fn:j10}];
+function renderJourneyCtl(){
+  const cur=curStep>=0?J[curStep]:null,ph=cur?cur.ph:-1;
+  $('ctl').innerHTML='<h2>HÀNH TRÌNH TỪ ĐẦU: TỪ LÚC MUA CHIP ĐẾN LÚC VỀ NHÀ</h2><div class="phases">'+PHASES.map((p,i)=>'<span class="ph'+(i===ph?' on':i<ph?' done':'')+'">'+p+'</span>').join('')+'</div>'+
+   '<div class="jbox"><div><p class="jt">'+(cur?'Bước '+(curStep+1)+'/'+J.length+' · '+cur.t:'Chưa bắt đầu')+'</p><p class="jd">'+(cur?cur.d:'Bấm “Bắt đầu hành trình” để đi từ lúc mở hộp đến lúc về nhà. Có thể bấm vào từng bước bên dưới để nhảy tới bước đó.')+'</p></div>'+
+   '<div class="jbtns"><button class="b" id="jPrev"'+(curStep<=0?' disabled':'')+'>◀ Bước trước</button><button class="b go" id="jStart">'+(cur?'↻ Chạy lại bước này':'▶ Bắt đầu hành trình')+'</button><button class="b pri" id="jNext"'+(curStep>=J.length-1?' disabled':'')+'>Bước sau ▶</button></div></div>'+
+   '<div class="cases" style="margin-top:10px">'+J.map((j,i)=>'<button class="case'+(i===curStep?' on':'')+'" data-step="'+i+'"><b>'+(i+1)+'. '+j.t+'</b><span>'+PHASES[j.ph].split(' · ')[0]+'</span></button>').join('')+'</div>'+
+   '<div class="casebar"><label class="snd"><input type="checkbox" id="auto"'+(autoFlag?' checked':'')+'> Tự động thao tác giúp tôi</label><label class="snd"><input type="checkbox" id="autonext"'+(autoNext?' checked':'')+'> Tự chạy tiếp sang bước sau</label></div>';
+}
+function renderCtl(){if(MODE==='journey')renderJourneyCtl();else renderCaseCtl();}
+function jumpTo(i){i=clamp(i,0,J.length-1);resetAll();curStep=i;setupState(i);renderU();renderR();
+  run(async()=>{for(let k=i;k<J.length;k++){curStep=k;setSteps(J.map(j=>j.t));step(k);renderCtl();await J[k].fn();if(!autoNext)return;if(k<J.length-1)await sleep(1300);}});}
+function jctl(e){
+  const t=e.target,st=t.closest&&t.closest('[data-step]');if(st){jumpTo(+st.dataset.step);return true;}
+  if(t.id==='jStart'){jumpTo(curStep>=0?curStep:0);return true;}
+  if(t.id==='jPrev'){jumpTo(curStep-1);return true;}
+  if(t.id==='jNext'){jumpTo(curStep+1);return true;}
+  return false;
+}
+function setMode(m){MODE=m;document.querySelectorAll('.mode').forEach(b=>b.classList.toggle('on',b.dataset.mode===m));curCase=null;curStep=-1;resetAll();renderCtl();
+  banner(m==='journey'?'Bấm “Bắt đầu hành trình” để đi từ lúc mở hộp đến lúc về nhà.':'Chọn một trường hợp ở trên để bắt đầu mô phỏng.');}
+
+/* ===== 14. CÁC TRƯỜNG HỢP ===== */
+async function boot(route){
+  setCam('chase');
+  setU('home');S.route='A';banner('Khởi hành: mở app, chọn điểm đến “Nhà”, bật cho phép Mẹ Lan (người thân) xem dữ liệu.');
+  await userAct('toroutes',2300);setU('routes');
+  if(route==='B'){banner('App đề xuất tuyến A (sáng đèn). Hôm nay Mai chọn tuyến B ngắn hơn nhưng vắng, ít đèn.','warn');await sleep(2300);S.route='B';renderU();}
+  else banner('App đề xuất tuyến A: sáng đèn, đông dân cư, kèm giờ dự kiến đến nơi.');
+  await userAct('start',2300);startTrip();
+}
+async function th1(){
+  setSteps(['Khởi hành','Ước tính & đếm ngược','Đi đường','Tới đích đúng hẹn','Tự động báo người thân']);step(0);
+  await boot('A');step(1);banner('App ước tính giờ đến, gửi qua chip; chip bắt đầu đếm ngược (xem đồng hồ ở app và HUD).');await sleep(1800);
+  step(2);banner('Đang đi trên tuyến A sáng đèn. Chip và điện thoại gửi GPS, vận tốc, rung chấn lên Cloud mỗi giây. Mẹ Lan xem trực tiếp.');
+  await until(()=>S.s>RT.A.len-95);step(3);banner('Sắp tới Nhà: GPS khớp vùng an toàn, vẫn còn trước mốc giờ dự kiến.');
+  await until(()=>S.arrived);step(4);await userAct('confirm',2600,()=>doAct('confirm'));
+  banner('✔ TH1 hoàn tất: đến đúng hẹn, hệ thống tự báo “Đã về an toàn” cho Mẹ Lan và ngắt phiên theo dõi.','ok');step(5);
+}
+async function th2a(){
+  setSteps(['Khởi hành','Ước tính & đếm ngược','Về trễ (quá độ)','An toàn → nhấn nút 2 lần','Gia hạn 15 phút, báo người thân']);step(0);
+  await boot('A');step(1);S.jam=true;S.stopAt=JAM-18;banner('Đang đi trên tuyến A. Phía trước sắp có kẹt xe...');
+  await until(()=>S.s>JAM-30&&S.speed<.5);banner('Kẹt xe: Mai phải dừng lại, chắc chắn sẽ về trễ so với dự kiến. (Đang tua nhanh thời gian chờ)','warn');
+  S.boost=14;await until(()=>S.overdue);S.boost=1;step(2);
+  banner('Quá giờ dự kiến: app báo “quá độ”, chip sáng đèn vàng. Mai thấy mình AN TOÀN → nhấn nút chip 2 lần để gia hạn.','warn');
+  await userAct('dbl',3600,()=>onDbl());step(3);await sleep(1300);step(4);S.stopAt=null;S.jam=false;
+  banner('✔ Đã gia hạn 15 phút và báo cho Mẹ Lan. Xe đi tiếp về nhà.','ok');
+  await until(()=>S.arrived);await userAct('confirm',2600,()=>doAct('confirm'));banner('✔ TH2a hoàn tất: về trễ nhưng an toàn, nhấn đúp để gia hạn nên không phát SOS.','ok');
+}
+async function th2b(){
+  setSteps(['Khởi hành','Ước tính & đếm ngược','Về trễ (quá độ)','Có kẻ lạ áp sát: KHÔNG an toàn','Giữ nút 3 giây → SOS']);step(0);
+  await boot('A');step(1);S.jam=true;S.stopAt=JAM-18;banner('Đang đi trên tuyến A. Phía trước sắp có kẹt xe...');
+  await until(()=>S.s>JAM-30&&S.speed<.5);banner('Kẹt xe: Mai bị kẹt lại, sắp quá giờ dự kiến. (Đang tua nhanh thời gian chờ)','warn');
+  S.boost=14;await until(()=>S.overdue);S.boost=1;step(2);
+  S.thief={mode:'follow',s:S.s-60,lat:0};setCam('act');
+  banner('Quá giờ, chip sáng đèn vàng. Lúc này có người lạ đến sát xe → Mai thấy KHÔNG an toàn nên KHÔNG nhấn đúp.','bad');
+  await until(()=>S.s-S.thief.s<=27);S.thief.mode='close';step(3,true);await sleep(900);
+  banner('Hãy nhấn GIỮ nút chip 3 giây như bình thường để gửi SOS im lặng.','bad');
+  await userAct('hold',1800,()=>startHold(true));step(4,true);
+  await sleep(3500);S.thief.mode='stay';
+  banner('✔ TH2b hoàn tất: về trễ + không an toàn → giữ nút 3 giây, SOS im lặng đã gửi cho Mẹ Lan.','ok');
+}
+async function th3a(){
+  setSteps(['Khởi hành','Qua nắp cống (rung nhẹ)','Bị áp sát','Giữ nút 3 giây','SMS tới người thân']);step(0);
+  await boot('B');step(1);banner('Tuyến B vắng. Phía trước có một nắp cống nhô lên giữa đường...');
+  await until(()=>S.s>MAN-40);setCam('side');banner('Xe giảm tốc nhưng vẫn cán lên nắp cống... (nhìn bánh xe và thân xe nảy lên)','warn');
+  await until(()=>S.s>MAN+2);banner('Xe nảy giật khi cán qua nắp cống: rung ~2.6 g nhưng DƯỚI ngưỡng 4.0 g → hệ thống lọc bỏ, KHÔNG báo động.','ok');
+  await until(()=>S.s>MAN+18);setCam('chase');
+  await until(()=>S.s>ATT-110);S.thief={mode:'follow',s:S.s-70,lat:0};setCam('act');step(2);banner('⚠ Một xe lạ bám đuôi trên đoạn đường vắng.','warn');
+  await until(()=>S.s-S.thief.s<=27);S.thief.mode='close';banner('⚠ Kẻ lạ áp sát bên cạnh nhưng chưa va chạm nên rung chấn vẫn thấp → hệ thống không tự báo. Hãy nhấn giữ nút trên chip 3 giây.','warn');step(3);
+  await sleep(1200);
+  await userAct('hold',1800,()=>startHold(true));step(4,true);
+  await sleep(3500);S.cruise=false;S.target=0;S.thief.mode='stay';
+  banner('✔ TH3a hoàn tất: SOS im lặng đã gửi. Xe không còi/đèn; Mẹ Lan nhận chuông lớn, vị trí trực tiếp, trạm cứu hộ gần nhất.','ok');
+}
+async function th3b(){
+  setSteps(['Khởi hành','Bị áp sát','Bị quật ngã (rung vượt ngưỡng)','Hỏi “Bạn ổn chứ?” 30 giây','SOS tự động']);step(0);
+  await boot('B');step(1);banner('Tuyến B vắng, ít đèn...');
+  await until(()=>S.s>ATT-110);S.thief={mode:'follow',s:S.s-70,lat:0};setCam('act');banner('⚠ Một xe lạ bám đuôi.','warn');
+  await until(()=>S.s-S.thief.s<=27);await sleep(500);banner('Kẻ lạ tăng ga vọt lên song song bên trái xe của Mai...','warn');S.thief.mode='attack';step(2,true);
+  await until(()=>S.thief.mode==='kick');banner('Hắn lạng sang, đạp/đâm thẳng vào xe của Mai!','bad');
+  await until(()=>S.fall>0);await sleep(400);step(3);
+  banner('Xe bị quật ngã, rung chấn vượt ngưỡng → app rung mạnh hỏi “Bạn ổn chứ?” 30 giây. Người lái bị ngã, không bấm kịp.','bad');
+  await until(()=>!!S.sos||!S.ask);
+  if(S.sos){step(4,true);await sleep(2500);banner('✔ TH3b hoàn tất: không ai bấm “Tôi an toàn” nên hệ thống tự gửi SOS kèm tọa độ.','ok');}
+  else banner('Người lái bấm “Tôi an toàn” kịp: không gửi SOS.','ok');
+}
+const CASES=[
+ {id:'th1',t:'TH1 · Đúng giờ',s:'Lộ trình an toàn, tới đích đúng hẹn',fn:th1,d:'Khởi hành, ước tính thời gian, đếm ngược, tới đích trước mốc giờ, hệ thống tự báo “Đã về an toàn” và ngắt phiên theo dõi.'},
+ {id:'th2a',t:'TH2a · Trễ giờ, an toàn',s:'Về trễ nhưng ổn → nhấn nút 2 lần',fn:th2a,d:'Kẹt xe làm quá mốc dự kiến: app báo quá độ, chip sáng đèn vàng. Nếu người lái an toàn thì nhấn nút chip 2 lần để gia hạn 15 phút, người thân được báo.'},
+ {id:'th2b',t:'TH2b · Trễ giờ, không an toàn',s:'Về trễ + bị áp sát → giữ nút 3 giây',fn:th2b,d:'Quá giờ và có người lạ áp sát. Người lái không nhấn đúp mà giữ nút chip 3 giây như bình thường để gửi SOS im lặng.'},
+ {id:'th3a',t:'TH3a · Rung chưa vượt ngưỡng',s:'Qua nắp cống rồi bị áp sát → bấm giữ chip',fn:th3a,d:'Xe qua nắp cống rung giật nhưng dưới ngưỡng nên không báo. Khi bị áp sát, người lái nhấn giữ chip 3 giây để gửi SOS im lặng.'},
+ {id:'th3b',t:'TH3b · Rung vượt ngưỡng',s:'Bị quật ngã → SOS tự động',fn:th3b,d:'Kẻ xấu quật ngã xe: rung chấn vượt ngưỡng, app hỏi “Bạn ổn chứ?” 30 giây, không phản hồi thì tự gửi SOS.'},
+ {id:'th4a',t:'TH4a · Thiết bị hỏng',s:'Chip bị đập vỡ, mất kết nối sau va đập → Fail-Safe',fn:th4a,d:'Kẻ xấu giật điện thoại, quật ngã và đập vỡ chip. Máy chủ thấy mất tín hiệu ngay sau cú rung rất mạnh nên tự gửi SOS kèm vị trí, giờ và độ rung cuối.'},
+ {id:'th4b',t:'TH4b · Tạm mất sóng',s:'Vào hầm chui, xe êm → KHÔNG báo SOS',fn:th4b,d:'Xe qua hầm chui mất sóng 4G. Rung chấn cuối êm nên máy chủ chỉ coi là tạm mất sóng, không báo nhầm; ra khỏi hầm chip gửi bù dữ liệu.'}];
+function renderCaseCtl(){
+  $('ctl').innerHTML='<h2>CHỌN TRƯỜNG HỢP ĐỂ MÔ PHỎNG (bấm vào là chạy)</h2><div class="cases">'+CASES.map(c=>'<button class="case'+(c.id===curCase?' on':'')+'" data-case="'+c.id+'"'+(c.later?' disabled style="opacity:.45"':'')+'><b>'+c.t+'</b><span>'+c.s+'</span></button>').join('')+'</div>'+
+   '<div class="casebar"><button class="b go" id="btnRun">▶ Chạy lại trường hợp này</button><label class="snd"><input type="checkbox" id="auto"'+(autoFlag?' checked':'')+'> Tự động thao tác giúp tôi (bỏ chọn để tự bấm chip và app)</label></div>'+
+   '<p class="casedesc">'+(curCase?CASES.filter(c=>c.id===curCase)[0].d:'Chọn một trường hợp ở trên. Mẹo: bỏ chọn “Tự động thao tác” để tự nhấn giữ chip 3 giây, nhấn đúp chip, hoặc bấm “Tôi an toàn”.')+'</p>';
+}
+function resetAll(){cancelAll();const rd=S.rdisp;S=fresh();S.rdisp=0;$('log').innerHTML='<div><span class="t">--</span>Chờ bắt đầu.</div>';$('rSos').classList.remove('show');$('rSos').innerHTML='';
+  $('chipTxt').textContent='Nhấn giữ 3 giây = SOS im lặng';$('steps').innerHTML='';banner('Chọn một trường hợp ở trên để bắt đầu.');$('btnFF').textContent='⏩ Tua nhanh đếm ngược';paused=false;$('btnPause').textContent='⏸ Tạm dừng';
+  hideStage();stageRes=null;if(R3)R3.started=false;renderU();renderR();hl();}
+function runCase(id){resetAll();curCase=id;renderCtl();run(CASES.filter(c=>c.id===id)[0].fn);}
+
+/* ===== 15. SỰ KIỆN & KHỞI ĐỘNG ===== */
+function doAct(a,el){
+  if(a==='dest'){S.dest=el.dataset.v;renderU();}
+  else if(a==='allow'){S.allow=!S.allow;renderU();}
+  else if(a==='toroutes'){if(!perform('toroutes'))setU('routes');}
+  else if(a==='pick'){S.route=el.dataset.v;renderU();}
+  else if(a==='start'){if(!perform('start')&&!S.trip&&!S.arrived)startTrip();}
+  else if(a==='extend')extend();
+  else if(a==='imok')imOk();
+  else if(a==='confirm'){S.confirmed=true;renderU();perform('confirm');}
+  else if(a==='stage'){hideStage();perform('stage');}
+  else if(a==='stagego'){if(stageRes){const r=stageRes;stageRes=null;r('go');}}
+  else if(a==='stagetry'){if(stageRes){const r=stageRes;stageRes=null;r('try');}}
+  else if(a==='closeSos')closeSos();
+  else if(!authAct(a,el))perform(a);
+}
+$('uScreen').addEventListener('click',e=>{const t=e.target.closest('[data-act]');if(t)doAct(t.dataset.act,t);});
+$('rTabs').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;S.tab=b.dataset.tab;if(S.tab==='sms')S.smsNew=0;renderR();});
+$('rSos').addEventListener('click',e=>{const t=e.target.closest('[data-act]');if(!t)return;if(t.dataset.act==='closeSos'){closeSos();return;}
+  const m={call113:'Đang gọi 113 và gửi kèm tọa độ hiện tại (mô phỏng)',callu:'Đang gọi cho Mai... (mô phỏng)',coming:'Đã báo: người thân đang trên đường tới (mô phỏng)'}[t.dataset.act];
+  const x=$('rToast');x.innerHTML='<b>📞 Mô phỏng</b>'+m;x.style.display='block';clearTimeout(x._h);x._h=setTimeout(()=>x.style.display='none',2500);log(m);});
+$('ctl').addEventListener('click',e=>{if(jctl(e))return;const c=e.target.closest('[data-case]');if(c&&!c.disabled){runCase(c.dataset.case);return;}if(e.target.id==='btnRun'&&curCase)runCase(curCase);});
+$('ctl').addEventListener('change',e=>{if(e.target.id==='auto')autoFlag=e.target.checked;if(e.target.id==='autonext')autoNext=e.target.checked;});
+$('btnPause').onclick=()=>{paused=!paused;$('btnPause').textContent=paused?'▶ Tiếp tục':'⏸ Tạm dừng';};
+$('btnFF').onclick=()=>{S.boost=S.boost>1?1:10;$('btnFF').textContent=S.boost>1?'⏩ Đang tua nhanh (bấm để dừng)':'⏩ Tua nhanh đếm ngược';};
+$('btnReset').onclick=()=>{curCase=null;curStep=-1;resetAll();renderCtl();};
+// chip: giữ 3 giây và nhấn đúp
+const cb=$('chipbtn');let downAt=0,lastTap=0;
+cb.addEventListener('pointerdown',e=>{e.preventDefault();try{cb.setPointerCapture(e.pointerId)}catch(_){}downAt=performance.now();startHold(false);});
+const up=()=>{const n=performance.now(),short=n-downAt<420;cancelHold();if(short&&S.chip.on){if(n-lastTap<500){lastTap=0;onDbl();}else lastTap=n;}};
+cb.addEventListener('pointerup',up);cb.addEventListener('pointercancel',()=>cancelHold());cb.addEventListener('contextmenu',e=>e.preventDefault());
+// giao diện khung cảnh
+buildScene2D();const ok3d=init3D();
+$('v3d').onclick=()=>setView('3d');$('v2d').onclick=()=>setView('2d');
+document.querySelectorAll('[data-cam]').forEach(b=>b.addEventListener('click',()=>setCam(b.dataset.cam)));
+if(!ok3d){$('v3d').disabled=true;$('v3d').title='Không tải được thư viện 3D (cần internet hoặc trình duyệt hỗ trợ WebGL)';$('v3d').textContent='Cảnh 3D (không khả dụng)';}
+setView(ok3d?'3d':'2d');
+document.querySelectorAll('.mode').forEach(m=>m.addEventListener('click',()=>setMode(m.dataset.mode)));
+$('stage').addEventListener('click',e=>{const t=e.target.closest('[data-act]');if(t)doAct(t.dataset.act,t);});
+bindAuth();applyNames();renderCtl();renderU();renderR();banner('Bấm “Bắt đầu hành trình” để đi từ lúc mở hộp đến lúc về nhà.');
+function frame(now){const dt=Math.min((now-lastT)/1000,.05)*TURBO;lastT=now;
+  if(!paused){stepWorld(dt);tickWaiters(dt*1000);}
+  update2D();update3D(dt);updateDyn();requestAnimationFrame(frame);}
+requestAnimationFrame(t=>{lastT=t;requestAnimationFrame(frame);});
+window.__SIM={get S(){return S;},runCase:runCase,jumpTo:jumpTo,setMode:setMode,get R3(){return R3;},get VIEW(){return VIEW;}};
+
+})();
+</script>
+</body>
+</html>
